@@ -1,3 +1,0 @@
-/home/nicola/Desktop/data_processing/sort_int/cmake-build-debug/CMakeFiles/sort_int.dir
-/home/nicola/Desktop/data_processing/sort_int/cmake-build-debug/CMakeFiles/edit_cache.dir
-/home/nicola/Desktop/data_processing/sort_int/cmake-build-debug/CMakeFiles/rebuild_cache.dir

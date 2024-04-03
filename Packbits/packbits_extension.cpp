@@ -40,7 +40,7 @@ public:
         outerWhile:
         while (is_.good()) {
             rhs = is_.get();
-            if(!is_.good()){
+            if (!is_.good()) {
                 old_state = state;
                 state = END_STATE;
                 values.push_back(lhs);
@@ -54,19 +54,18 @@ public:
                     break;
 
                 case UNSTABLE_STATE:
-                    if (old_state == INITIAL_STATE){
+                    if (old_state == INITIAL_STATE) {
                         if (lhs == rhs) state = RUN_STATE;
                         else state = NRUN_STATE;
-                    }else if (old_state == NRUN_STATE){
-                        if (lhs == rhs){
+                    } else if (old_state == NRUN_STATE) {
+                        if (lhs == rhs) {
                             state = RUN_STATE;
                             values.pop_back();
                             printNRun(values.size(), values);
                             values.clear();
                             values.push_back(lhs);
                             old_state = INITIAL_STATE;
-                        }
-                        else state = NRUN_STATE;
+                        } else state = NRUN_STATE;
                     }
 
                     values.push_back(lhs);
@@ -79,26 +78,28 @@ public:
                         state = INITIAL_STATE;
                     }
                     values.push_back(lhs);
-                    if(values.size() >= 128){
+                    if (values.size() >= 128) {
                         printRun(values.size(), values[0]);
                         values.clear();
                     }
                     break;
                 case NRUN_STATE:
                     if (lhs == rhs) {
-                        old_state = NRUN_STATE;
-                        state = UNSTABLE_STATE;
+//                        old_state = NRUN_STATE;
+//                        state = UNSTABLE_STATE;
+                        printNRun(values.size(), values);
+                        state = INITIAL_STATE;
                     }
                     values.push_back(lhs);
-                    if(values.size() >= 128){
+                    if (values.size() >= 128) {
                         printNRun(values.size(), values);
                         values.clear();
                     }
                     break;
                 default:
-                    if (old_state == NRUN_STATE){
+                    if (old_state == NRUN_STATE) {
                         printNRun(values.size(), values);
-                    }else{
+                    } else {
                         printRun(values.size(), values[0]);
                     }
                     values.push_back(lhs);

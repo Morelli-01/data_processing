@@ -3,4 +3,4 @@ project(Packbits)
 
 set(CMAKE_CXX_STANDARD 23)
 
-add_executable(packbits packbits_extension.cpp)
+add_executable(packbits packbits.cpp)

@@ -1,7 +1,4 @@
 //
-// Created by nicola on 03/04/24.
-//
-//
 // Created by nicola on 02/04/2024.
 //
 
@@ -11,13 +8,6 @@
 #include <cstdint>
 #include <vector>
 #include "iostream"
-
-#define UNINITIALIZED_STATE 0
-#define INITIAL_STATE 1
-#define NRUN_STATE 2
-#define RUN_STATE 3
-//#define UNSTABLE_STATE 4
-#define END_STATE 5
 
 using std::cout;
 using std::endl;
@@ -31,85 +21,61 @@ int error(const std::string &reason) {
 class PackbitsWriter {
     std::ostream &os_;
     std::istream &is_;
-    int state = INITIAL_STATE;
-    int old_state = INITIAL_STATE;
+
 public:
     explicit PackbitsWriter(std::ostream &os_, std::istream &is_) : is_(is_), os_(os_) {}
 
     void operator()() {
         uint8_t lhs = is_.get();
         uint8_t rhs;
+        int run = 0;
+        uint8_t nRun = 0;
         std::vector<uint8_t> values{};
-        outerWhile:
-        while (is_.good()) {
-//            if (lhs == 0x0D) {
-//                rhs = 0x0A;
-//            } else {
-//                rhs = is_.get();
-//                if (rhs == 0x0A){
-//                    rhs = 0x0D;
-//                }
-//            }
+        while (lhs != 255) {
             rhs = is_.get();
-
-            if (!is_.good()) {
-                old_state = state;
-                state = END_STATE;
-                values.push_back(lhs);
-            }
-            switch (state) {
-                case INITIAL_STATE:
+            if (lhs == rhs) {
+                if (nRun > 0) {
+                    printNRun(nRun, values);
+                    nRun = 0;
                     values.clear();
-                    if (lhs != rhs) state = NRUN_STATE;
-                    else state = RUN_STATE;
-                    values.push_back(lhs);
-                    break;
+                }
 
-                case RUN_STATE:
-                    if (lhs != rhs or values.size() >= 127) {
-                        values.push_back(lhs);
-                        printRun(values.size(), values[0]);
-                        state = INITIAL_STATE;
-                    }
-                    values.push_back(lhs);
-                    break;
-                case NRUN_STATE:
-                    if (lhs == rhs) {
-                        printNRun(values.size(), values);
-                        state = RUN_STATE;
-                        values.clear();
-                    }
-                    values.push_back(lhs);
-                    if (values.size() >= 128) {
-                        printNRun(values.size(), values);
-                        state = INITIAL_STATE;
-                    }
-                    break;
-                default:
-                    if (old_state == NRUN_STATE) {
-                        printNRun(values.size(), values);
-                    } else {
-                        printRun(values.size(), values[0]);
-                    }
-                    values.push_back(lhs);
-                    break;
-
+                run++;
+                if (run >= 128) {
+                    printRun(run - 1, lhs);
+                    run = 0;
+                }
+            } else {
+                if (run > 0) {
+                    printRun(run, lhs);
+                    run = 0;
+                    lhs = rhs;
+                    continue;
+                }
+                values.push_back(lhs);
+                nRun++;
+                if (nRun >= 128) {
+                    printNRun(nRun, values);
+                    nRun = 0;
+                    values.clear();
+                }
             }
-
             lhs = rhs;
         }
+        if (run > 0) printRun(run, lhs);
+        else if (nRun > 0) printNRun(nRun, values);
 
         os_.put(END_CHARACTER);
 
     }
 
     void printRun(uint8_t len, uint8_t c) {
-        os_.put(257 - len);
+        os_.put(257 - (len + 1));
         os_.put(c);
-
     }
 
     void printNRun(uint8_t len, const std::vector<uint8_t> &values) {
+
         os_.put(len - 1);
         for (int j = 0; j < len; ++j) {
             os_.put(values[j]);

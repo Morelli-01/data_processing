@@ -1,4 +1,7 @@
 //
+// Created by nicola on 03/04/24.
+//
+//
 // Created by nicola on 02/04/2024.
 //
 
@@ -39,7 +42,16 @@ public:
         std::vector<uint8_t> values{};
         outerWhile:
         while (is_.good()) {
+//            if (lhs == 0x0D) {
+//                rhs = 0x0A;
+//            } else {
+//                rhs = is_.get();
+//                if (rhs == 0x0A) {
+//                    rhs = 0x0D;
+//                }
+//            }
             rhs = is_.get();
+
             if (!is_.good()) {
                 old_state = state;
                 state = END_STATE;
@@ -52,48 +64,39 @@ public:
                     else state = UNSTABLE_STATE;
                     values.push_back(lhs);
                     break;
-
                 case UNSTABLE_STATE:
-                    if (old_state == INITIAL_STATE) {
-                        if (lhs == rhs) state = RUN_STATE;
-                        else state = NRUN_STATE;
-                    } else if (old_state == NRUN_STATE) {
-                        if (lhs == rhs) {
-                            state = RUN_STATE;
+                    if (lhs == rhs) {
+                        state = RUN_STATE;
+                        if (old_state == NRUN_STATE) {
                             values.pop_back();
                             printNRun(values.size(), values);
                             values.clear();
                             values.push_back(lhs);
                             old_state = INITIAL_STATE;
-                        } else state = NRUN_STATE;
+                        }
+                    } else {
+                        state = NRUN_STATE;
                     }
-
                     values.push_back(lhs);
-
                     break;
+
                 case RUN_STATE:
-                    if (lhs != rhs) {
+                    if (lhs != rhs or values.size() >= 127) {
                         values.push_back(lhs);
                         printRun(values.size(), values[0]);
                         state = INITIAL_STATE;
                     }
                     values.push_back(lhs);
-                    if (values.size() >= 128) {
-                        printRun(values.size(), values[0]);
-                        values.clear();
-                    }
                     break;
                 case NRUN_STATE:
                     if (lhs == rhs) {
-//                        old_state = NRUN_STATE;
-//                        state = UNSTABLE_STATE;
-                        printNRun(values.size(), values);
-                        state = INITIAL_STATE;
+                        state = UNSTABLE_STATE;
+                        old_state = NRUN_STATE;
                     }
                     values.push_back(lhs);
                     if (values.size() >= 128) {
                         printNRun(values.size(), values);
-                        values.clear();
+                        state = INITIAL_STATE;
                     }
                     break;
                 default:
@@ -115,7 +118,7 @@ public:
     }
 
     void printRun(uint8_t len, uint8_t c) {
-        os_.put(257 - (len));
+        os_.put(257 - len);
         os_.put(c);
 
     }

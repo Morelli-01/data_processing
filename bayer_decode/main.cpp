@@ -7,6 +7,9 @@
 #include "algorithm"
 
 using namespace std;
+#define FROM_RED 0
+#define FROM_GREEN 1
+#define FROM_BLUE 2
 
 template<typename T>
 class Mat {
@@ -24,9 +27,9 @@ public:
         return data_[r * cols_ + c];
     }
 
-//    const T &operator()(size_t r, size_t c) const {
-//        return data_[r * cols_ + c];
-//    }
+    const T &operator()(size_t r, size_t c) const {
+        return data_[r * cols_ + c];
+    }
 
     vector<T> &dataVector() {
         return data_;
@@ -47,7 +50,20 @@ public:
     ~Mat() {
         cout << "MAT DECONSTRUCTOR HAS BEEN CALLED!!!" << endl;
     }
+
+
 };
+
+uint8_t &protected_data(int r, int c, Mat<array<uint8_t, 3>> &data, size_t index) {
+    if (r < 0 or c < 0 or r >= data.rows() or c >= data.cols()) {
+        uint8_t *zero = new uint8_t;
+        *zero = 0;
+        return *zero;
+    } else {
+        return data(r, c)[index];
+    }
+
+}
 
 struct PGMHelper {
 
@@ -93,13 +109,13 @@ struct PGMHelper {
         return EXIT_SUCCESS;
     }
 
-    static auto dumpPGM(Mat<array<uint8_t, 3>> &data, const string &path) {
-        ofstream os(path + "_gray.pgm", std::ios::binary);
+    static auto dumpPPM(Mat<array<uint8_t, 3>> &data, const string &path) {
+        ofstream os(path + ".ppm", std::ios::binary);
         if (os.fail()) {
             perror("Error while opening ouput file");
             return EXIT_FAILURE;
         }
-        os << "P5\n";
+        os << "P6\n";
         os << to_string(data.cols()) << ' ';
         os << to_string(data.rows()) << ' ';
         os << "255\n";
@@ -118,28 +134,33 @@ Mat<uint8_t> &quantize(Mat<uint16_t> &data16, Mat<uint8_t> &data8) {
     return data8;
 }
 
-auto greenReconstruction(size_t r, size_t c, Mat<array<uint8_t, 3>> data, size_t index) {
+auto greenReconstruction(size_t r, size_t c, Mat<array<uint8_t, 3>> &data, size_t index) {
 
-    if (r < 2 or c < 2 or r >= data.rows() - 2 or c >= data.cols() - 2) {
-        return 0;
-    }
+//    if (r < 2 or c < 2 or r >= data.rows() - 2 or c >= data.cols() - 2) {
+//        return 0;
+//    }
 
-    auto tmp1 = data(r, c)[index] * 2 - data(r, c - 2)[index] - data(r, c + 2)[index];
-    auto tmp2 = data(r, c)[index] * 2 - data(r - 2, c)[index] - data(r + 2, c)[index];
+    auto tmp1 = protected_data(r, c, data, index) * 2 - protected_data(r, c - 2, data, index) -
+                protected_data(r, c + 2, data, index);
+    auto tmp2 = protected_data(r, c, data, index) * 2 - protected_data(r - 2, c, data, index) -
+                protected_data(r + 2, c, data, index);
 
-    auto deltaH = std::abs(data(r, c - 1)[1] - data(r, c + 1)[1]) +
+    auto deltaH = std::abs(protected_data(r, c - 1, data, 1) - protected_data(r, c + 1, data, 1)) +
                   std::abs(tmp1);
-    auto deltaV = std::abs(data(r - 1, c)[1] - data(r + 1, c)[1]) +
+    auto deltaV = std::abs(protected_data(r - 1, c, data, 1) - protected_data(r + 1, c, data, 1)) +
                   std::abs(tmp2);
 
     if (deltaH < deltaV) {
-        return (data(r, c - 1)[1] + data(r, c + 1)[1]) / 2 + tmp1 / 4;
+        return (protected_data(r, c - 1, data, 1) + protected_data(r, c + 1, data, 1)) / 2 + tmp1 / 4;
     } else if (deltaH > deltaV) {
-        return (data(r - 1, c)[1] + data(r + 1, c)[1]) / 2 + tmp2 / 4;
+        return (protected_data(r - 1, c, data, 1) + protected_data(r + 1, c, data, 1)) / 2 + tmp2 / 4;
     } else {
-        return (data(r - 1, c)[1] + data(r + 1, c)[1] + data(r, c - 1)[1] + data(r, c + 1)[1]) / 4 +
-               (4 * data(r, c)[index] - data(r, c - 2)[index] - data(r, c + 2)[index] - data(r - 2, c)[index] -
-                data(r + 2, c)[index]) / 8;
+        return (protected_data(r - 1, c, data, 1) + protected_data(r + 1, c, data, 1) +
+                protected_data(r, c - 1, data, 1) + protected_data(r, c + 1, data, 1)) / 4 +
+               (4 * protected_data(r, c, data, index) - protected_data(r, c - 2, data, index) -
+                protected_data(r, c + 2, data, index) -
+                protected_data(r - 2, c, data, index) -
+                protected_data(r + 2, c, data, index)) / 8;
     }
 
 }
@@ -179,7 +200,22 @@ int main(int argc, char **argv) {
             }
         }
     }
-    PGMHelper::dumpPGM(bayer_pattern, "C:\\Users\\nicol\\Desktop\\data_processing\\bayer_decode\\D5100LL004003_color");
+
+    for (int r = 0; r < bayer_pattern.rows(); ++r) {
+        for (int c = 0; c < bayer_pattern.cols(); ++c) {
+            if (r % 2 == 0) {
+                if (c % 2 == 0) {
+                    bayer_pattern(r, c)[1] = greenReconstruction(r, c, bayer_pattern, FROM_RED);
+                }
+            } else {
+                if (c % 2 != 0) {
+                    bayer_pattern(r, c)[1] = greenReconstruction(r, c, bayer_pattern, FROM_BLUE);
+                }
+            }
+        }
+    }
+
+    PGMHelper::dumpPPM(bayer_pattern, "/home/nicola/Desktop/data_processing/bayer_decode/small_color");
 
 
     return EXIT_SUCCESS;

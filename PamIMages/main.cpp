@@ -1,52 +1,70 @@
-#include <iostream>
+//
+// Created by nicola on 05/04/2024.
+//
+#include <cstdlib>
+#include <string>
+#include <variant>
 #include <fstream>
 #include <map>
+#include <cstdint>
 #include <vector>
-#include <variant>
-
-#define GREYSCALE 0
-#define RGB 1
+#include <functional>
+#include <memory>
+#include "iostream"
+#include "chrono"
 
 using std::cout;
 using std::endl;
+#define GRAYSCALE 0
+#define RGB 1
+using namespace std;
+using namespace std::chrono;
 
 template<typename T>
 class Mat {
-    size_t cols_;
     size_t rows_;
+    size_t cols_;
     std::vector<T> data_;
+    std::function<size_t(size_t, size_t)> getIndex;
 public:
-
-    Mat(size_t row, size_t col) : cols_(col), rows_(row) {
+    Mat(size_t rows_, size_t cols_) : rows_(rows_), cols_(cols_) {
         data_ = std::vector<T>(rows_ * cols_);
+        getIndex = [&](size_t r, size_t c) -> size_t {
+            return r * this->cols_ + c;
+        };
     }
 
     T &operator()(size_t r, size_t c) {
-        return data_[r * cols_ + c];
+        return data_[getIndex(r, c)];
     }
 
-    const T &operator()(size_t r, size_t c) const {
-        return data_[r * cols_ + c];
-    }
-
-    T &rowdata(size_t index) {
-        return data_[index];
-    }
-
-    const T &rowdata(size_t index) const {
-        return data_[index];
-    }
-
-    size_t cols() const {
-        return cols_;
+    T &operator()(size_t r, size_t c) const {
+        return data_[getIndex(r, c)];
     }
 
     size_t rows() const {
         return rows_;
     }
 
-    int size() const {
-        return cols_ * rows_;
+    size_t cols() const {
+        return cols_;
+    }
+
+    const std::vector<T> &data() const {
+        return data_;
+    }
+
+    std::vector<T> &data() {
+        return data_;
+    }
+
+    size_t size() const {
+        return data_.size();
+    }
+
+
+    void setGetIndex(std::function<size_t(size_t, size_t)> f) {
+        getIndex = std::move(f);
     }
 
 };
@@ -54,123 +72,83 @@ public:
 class PamHelper {
 
 public:
-    static std::variant<std::pair<std::map<std::string, int>, Mat<uint8_t>>,
-            std::pair<std::map<std::string, int>, std::array<Mat<uint8_t>, 3> >,
-            void const *>
-    parsePam(const std::string &path) {
-        std::ifstream is(path, std::ios::binary);
-        if (!is.good()) {
-            perror("Problem encountered while tring to open the input file");
-            return nullptr;
-        }
-        std::string tmp = std::string{(char) is.get()};
-        tmp += std::string{(char) is.get()};
-        if (tmp != "P7") {
-            perror("The file you're trying to open is not a .pam file\n");
-            return nullptr;
-        }
-        std::map<std::string, int> header_;
+    static std::map<std::string, int> parseHeader(std::istream &is) {
+        string file_type{};
+        file_type += static_cast<char>(is.get());
+        file_type += static_cast<char>(is.get());
+        file_type += static_cast<char>(is.get());
 
-        header_.insert({"WIDTH", -1});
-        header_.insert({"HEIGHT", -1});
-        header_.insert({"DEPTH", -1});
-        header_.insert({"MAXVAL", -1});
-        header_.insert({"TUPLTYPE", -1});
-        header_.insert({"ENDHDR", -1});
-        tmp = "";
-        std::string h{};
-        std::string v{};
+        if (file_type != "P7\n") {
+            perror("The file passed as input is not a .pam file!!!");
+            exit(-1);
+        }
+        char tmp;
+        string tmpStr{};
+        string field{};
+        map<string, int> header_ = getStdHeader();
+
         while (header_["ENDHDR"] == -1) {
             tmp = is.get();
-            if (tmp == "\n") {
-                continue;
-            }
-            h += tmp;
-
-            if (header_.contains(h)) {
-                if (h == "ENDHDR") {
-                    header_["ENDHDR"] = 0;
-                    continue;
-                }
-                is.get();
-
-                if (h == "TUPLTYPE") {
-                    while ((tmp = is.get()) != "\n") v += tmp;
-                    if (v == "GRAYSCALE") header_[h] = GREYSCALE;
-                    else header_[h] = RGB;
-                } else {
-                    while ((tmp = is.get()) != "\n") v += tmp;
-
-                    header_[h] = atoi(v.c_str());
-                }
-
-
-                v = "";
-                h = "";
+            switch (tmp) {
+                case '#':
+                    while (is.get() != '\n');
+                    break;
+                case ' ':
+                    field = tmpStr;
+                    tmpStr.clear();
+                    break;
+                case '\n':
+                    if (tmpStr == "ENDHDR") header_[tmpStr] = 0;
+                    else if (field == "TUPLTYPE") header_[field] = (tmpStr == "RGB") ? RGB : GRAYSCALE;
+                    else header_[field] = atoi(tmpStr.c_str());
+                    tmpStr.clear();
+                    break;
+                default:
+                    tmpStr += tmp;
             }
         }
-        is.get();
-
-        if (header_["TUPLTYPE"]) {
-            Mat mat_R = Mat<uint8_t>(header_["HEIGHT"], header_["WIDTH"]);
-            Mat mat_G = Mat<uint8_t>(header_["HEIGHT"], header_["WIDTH"]);
-            Mat mat_B = Mat<uint8_t>(header_["HEIGHT"], header_["WIDTH"]);
-            std::array<Mat<uint8_t>, 3> data = {mat_R, mat_G, mat_B};
-            for (int r = 0; r < header_["HEIGHT"]; ++r) {
-                for (int c = 0; c < header_["WIDTH"]; ++c) {
-                    for (int i = 0; i <3; ++i) {
-                        data[i](r, c) = is.get();
-
-                    }
-                }
-            }
-
-            return std::pair{header_, data};
-        } else {
-            Mat data = Mat<uint8_t>(header_["HEIGHT"], header_["WIDTH"]);
-            uint8_t d;
-            for (int r = 0; r < data.rows(); ++r) {
-                for (int c = 0; c < data.cols(); ++c) {
-                    data(r, c) = is.get();
-                }
-            }
-            return std::pair{header_, data};
-        }
-
+        return std::move(header_);
     }
 
-    static void
-    dumpPam(std::map<std::string, int> &header, std::variant<Mat<uint8_t>, std::array<Mat<uint8_t>, 3>> variant,
-            std::ostream &os) {
-        os.write("P7", 2);
-        os.put('\n');
-        os << "WIDTH " << header["WIDTH"] << endl;
-        os << "HEIGHT " << header["HEIGHT"] << endl;
-        os << "DEPTH " << header["DEPTH"] << endl;
-        os << "MAXVAL " << header["MAXVAL"] << endl;
-        os << "TUPLTYPE " << (header["TULPTYPE"] == 0 ? "GRAYSCALE" : "RGB") << endl;
-        os << "ENDHDR" << endl;
-        if (std::holds_alternative<Mat<uint8_t>>(variant)) {
-            auto data = std::get<Mat<uint8_t>>(variant);
-            for (int r = 0; r < data.rows(); ++r) {
-                for (int c = 0; c < data.cols(); ++c) {
-                    os.put(data(r, c));
-                }
-            }
-        } else if (std::holds_alternative<std::array<Mat<uint8_t>, 3>>(variant)){
-            auto data = std::get<std::array<Mat<uint8_t>, 3>>(variant);
-            for (int r = 0; r < header["HEIGHT"]; ++r) {
-                for (int c = 0; c < header["WIDTH"]; ++c) {
-                    for (int i = 0; i <3; ++i) {
-                        os.put(data[i](r, c));
+    static vector<unique_ptr<Mat<uint8_t >>> parsePam(const std::string &path) {
+        std::ifstream is(path, std::ios::binary);
+        if (is.fail()) {
+            perror("Error encountered while opening input file");
+            exit(-1);
+        }
+        map<string, int> header_ = parseHeader(is);
+        vector<unique_ptr<Mat<uint8_t>>> vec{};
+
+        if (header_["TUPLTYPE"] == RGB) {
+            vec.push_back(make_unique<Mat<uint8_t>>(header_["HEIGHT"], header_["WIDTH"]));
+            vec.push_back(make_unique<Mat<uint8_t>>(header_["HEIGHT"], header_["WIDTH"]));
+            vec.push_back(make_unique<Mat<uint8_t>>(header_["HEIGHT"], header_["WIDTH"]));
+            for (int r = 0; r < header_["HEIGHT"]; ++r) {
+                for (int c = 0; c < header_["WIDTH"]; ++c) {
+                    for (int i = 0; i < 3; ++i) {
+                        (*vec[i])(r, c) = is.get();
                     }
                 }
+
             }
+        } else {
+            unique_ptr<Mat<uint8_t>> data = make_unique<Mat<uint8_t>>(header_["HEIGHT"], header_["WIDTH"]);
+            for (int r = 0; r < data->rows(); ++r) {
+                for (int c = 0; c < data->cols(); ++c) {
+                    (*data)(r, c) = is.get();
+                }
+
+            }
+            vec.push_back(std::move(data));
+
         }
+        return std::move(vec);
+
+
     }
 
     static std::map<std::string, int> getStdHeader(int w = -1, int h = -1, int d = -1, int max = -1, int type = -1) {
-        std::map<std::string, int> header_;
+        map<std::string, int> header_;
 
         header_.insert({"WIDTH", w});
         header_.insert({"HEIGHT", h});
@@ -178,65 +156,101 @@ public:
         header_.insert({"MAXVAL", max});
         header_.insert({"TUPLTYPE", type});
         header_.insert({"ENDHDR", -1});
-        return header_;
+        return std::move(header_);
+    }
+
+    static void dumpHeader(std::map<std::string, int> &header, std::ostream &os) {
+        os.write("P7", 2);
+        os.put('\n');
+        os << "WIDTH " << header["WIDTH"] << endl;
+        os << "HEIGHT " << header["HEIGHT"] << endl;
+        os << "DEPTH " << header["DEPTH"] << endl;
+        os << "MAXVAL " << header["MAXVAL"] << endl;
+        os << "TUPLTYPE " << (header["TUPLTYPE"] == 0 ? "GRAYSCALE" : "RGB") << endl;
+        os << "ENDHDR" << endl;
+    }
+
+    static void dumpPam(const vector<unique_ptr<Mat<uint8_t >>> &vec, const std::string &path) {
+        std::ofstream os(path, std::ios::binary);
+        if (os.fail()) {
+            perror("Error encountered while opening output file");
+            exit(-1);
+        }
+
+//        auto &mat_R = *(vec[0].get());
+        map<string, int> header_ = getStdHeader(vec[0]->cols(), vec[0]->rows(), vec.size(), 255,
+                                                vec.size() == 1 ? GRAYSCALE : RGB);
+        dumpHeader(header_, os);
+        if (header_["TUPLTYPE"]) {
+
+            for (int r = 0; r < vec[0]->rows(); ++r) {
+                for (int c = 0; c < vec[0]->cols(); ++c) {
+                    for (int i = 0; i < 3; ++i) {
+                        os.put((*vec[i])(r, c));
+//                        os.put(vec[i].get()->(r, c));
+                    }
+
+                }
+            }
+        } else {
+            for (int r = 0; r < vec[0]->rows(); ++r) {
+                for (int c = 0; c < vec[0]->cols(); ++c) {
+                    os.put((*vec[0])(r, c));
+                }
+            }
+        }
+        cout << endl;
     }
 };
 
-using Result = std::pair<std::map<std::string, int>, Mat<uint8_t>>;
-
 void esercizio_1() {
-    std::map<std::string, int> header = PamHelper::getStdHeader(256, 256, 1, 255, GREYSCALE);
-    Mat mat = Mat<uint8_t>(header["HEIGHT"], header["WIDTH"]);
-    for (int r = 0; r < mat.rows(); ++r) {
-        for (int c = 0; c < mat.cols(); ++c) {
-            mat(r, c) = r;
-        }
-    }
-    std::ofstream os("/home/nicola/Desktop/data_processing/PamIMages/es1.pam", std::ios::binary);
-    PamHelper::dumpPam(header, mat, os);
+    Mat<uint8_t> data(256, 256);
+
+    int i = 0;
+    std::for_each(data.data().begin(), data.data().end(), [&](uint8_t &x) {
+        x = i / 256;
+        i++;
+    });
+
+    vector<unique_ptr<Mat<uint8_t >>> vec;
+    vec.push_back(make_unique<Mat<uint8_t>>(data));
+
+    PamHelper::dumpPam(vec, std::string{"C:\\Users\\nicol\\Desktop\\data_processing\\PamIMages\\es2.pam"});
 }
 
 void esercizio_2() {
-    auto pamImage = PamHelper::parsePam("/home/nicola/Desktop/data_processing/PamIMages/frog.pam");
-    if (std::holds_alternative<std::pair<std::map<std::string, int>, Mat<uint8_t>>>(pamImage)) {
-        auto [header, data] = std::get<Result>(pamImage);
+    vector<unique_ptr<Mat<uint8_t >>> vec = PamHelper::parsePam(
+            std::string{"C:\\Users\\nicol\\Desktop\\data_processing\\PamIMages\\frog.pam"});
 
-        Mat flipped_data = Mat<uint8_t>(header["HEIGHT"], header["WIDTH"]);
-        for (int r = 0; r < data.rows(); ++r) {
-            for (int c = 0; c < data.cols(); ++c) {
-                flipped_data(r, c) = data(header["HEIGHT"] - r - 1, c);
-            }
-        }
-        std::ofstream os("/home/nicola/Desktop/data_processing/PamIMages/es2.pam", std::ios::binary);
-        PamHelper::dumpPam(header, flipped_data, os);
+    std::for_each(vec.begin(), vec.end(), [](unique_ptr<Mat<uint8_t >> &v) {
+        v->setGetIndex([&](size_t r, size_t c) -> size_t {
+            return (v->rows() - r - 1) * v->cols() + c;
+        });
+    });
 
-    }
+    PamHelper::dumpPam(vec, std::string{"C:\\Users\\nicol\\Desktop\\data_processing\\PamIMages\\es2.pam"});
 }
 
+void esercizio_3() {
+    vector<unique_ptr<Mat<uint8_t >>> vec = PamHelper::parsePam(
+            std::string{"C:\\Users\\nicol\\Desktop\\data_processing\\PamIMages\\laptop.pam"});
+
+    std::for_each(vec.begin(), vec.end(), [](unique_ptr<Mat<uint8_t >> &v) {
+        v->setGetIndex([&](size_t r, size_t c) -> size_t {
+            return r * v->cols() + v->cols() - c - 1;
+        });
+    });
+
+    PamHelper::dumpPam(vec, std::string{"C:\\Users\\nicol\\Desktop\\data_processing\\PamIMages\\es3.pam"});
+}
 
 int main() {
-    auto pamImage = PamHelper::parsePam("/home/nicola/Desktop/data_processing/PamIMages/laptop.pam");
-    if (std::holds_alternative<std::pair<std::map<std::string, int>, std::array<Mat<uint8_t>, 3>>>(pamImage)) {
-        auto [header, data] = std::get<std::pair<std::map<std::string, int>, std::array<Mat<uint8_t>, 3>>>(pamImage);
-        std::ofstream os("/home/nicola/Desktop/data_processing/PamIMages/es3.pam", std::ios::binary);
-        PamHelper::dumpPam(header, data, os);
-
-    }
+    auto start = steady_clock::now();
 
 
-//        auto [header, data] = std::get<Result>(pamImage);
-//
-//        Mat flipped_data = Mat<uint8_t>(header["HEIGHT"], header["WIDTH"]);
-//        for (int r = 0; r < data.rows(); ++r) {
-//            for (int c = 0; c < data.cols(); ++c) {
-//                flipped_data(r, c) = data(r, header["WIDTH"] - c - 1);
-//            }
-//        }
-//        std::ofstream os("/home/nicola/Desktop/data_processing/PamIMages/es3.pam", std::ios::binary);
-//        PamHelper::dumpPam(header, flipped_data, os);
-//
-//    }
-    esercizio_2();
+    auto stop = steady_clock::now();
+    duration<double, std::milli> elapsed_ms = stop - start;
+    cout << "Elapsed time to execute decompression was :" << elapsed_ms.count() << "ms" << endl;
 
     return EXIT_SUCCESS;
 }

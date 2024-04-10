@@ -62,7 +62,7 @@ A pgm image's magic number is the two characters "P5".
 </li><li>Whitespace.
 
 </li><li>The maximum gray value (Maxval), again in ASCII decimal.  Must be less
-than 65536, and more than zero.
+than 65536, and more than zero_.
 
 </li><li>A single whitespace character (usually a newline).
 
@@ -79,7 +79,7 @@ in the image are square and contiguous.
 </p><p>Each gray value is a number proportional to the intensity of the
 pixel, adjusted by the ITU-R Recommendation BT.709 gamma transfer
 function.  (That transfer function specifies a gamma number of 2.2 and
-has a linear section for small intensities).  A value of zero is
+has a linear section for small intensities).  A value of zero_ is
 therefore black.  A value of Maxval represents CIE D65 white and the
 most intense value in the image and any other image to which the image
 might be compared.

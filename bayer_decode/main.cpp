@@ -7,9 +7,9 @@
 #include "algorithm"
 
 using namespace std;
-#define FROM_RED 0
-#define FROM_GREEN 1
-#define FROM_BLUE 2
+#define RED 0
+#define GREEN 1
+#define BLUE 2
 
 template<typename T>
 class Mat {
@@ -119,7 +119,7 @@ struct PGMHelper {
         os << to_string(data.cols()) << ' ';
         os << to_string(data.rows()) << ' ';
         os << "255\n";
-        os.write(reinterpret_cast<const char *>(data.dataVector().data()), data.rows() * data.cols());
+        os.write(reinterpret_cast<const char *>(data.dataVector().data()), data.rows() * data.cols() * 3);
 
         return EXIT_SUCCESS;
     }
@@ -165,6 +165,45 @@ auto greenReconstruction(size_t r, size_t c, Mat<array<uint8_t, 3>> &data, size_
 
 }
 
+void avarages_vert(size_t r, size_t c, Mat<array<uint8_t, 3>> &data, size_t index) {
+    data(r, c)[index] = (protected_data(r - 1, c, data, index) + protected_data(r + 1, c, data, index)) / 2;
+
+}
+
+void avarages_horiz(size_t r, size_t c, Mat<array<uint8_t, 3>> &data, size_t index) {
+    data(r, c)[index] = (protected_data(r, c - 1, data, index) + protected_data(r, c - 1, data, index)) / 2;
+}
+
+void redBluereconstruction(size_t r, size_t c, Mat<array<uint8_t, 3>> &data, size_t index) {
+//    int index = (index == RED) ? BLUE : RED;
+    auto tmp1 = protected_data(r, c, data, GREEN) * 2 - protected_data(r - 1, c - 1, data, GREEN) -
+                protected_data(r + 1, c + 1, data, GREEN);
+    auto tmp2 = protected_data(r, c, data, GREEN) * 2 - protected_data(r - 1, c + 1, data, GREEN) -
+                protected_data(r + 1, c - 1, data, GREEN);
+
+
+    auto deltaN = abs(protected_data(r - 1, c - 1, data, index) - protected_data(r + 1, c + 1, data, index)) +
+                  abs(tmp1);
+    auto deltaP = abs(protected_data(r - 1, c + 1, data, index) - protected_data(r + 1, c - 1, data, index)) +
+                  abs(tmp2);
+
+
+    if (deltaN < deltaP) {
+        data(r, c)[index] =
+                (protected_data(r - 1, c - 1, data, index) + protected_data(r + 1, c + 1, data, index)) / 2 +
+                tmp1 / 4;
+    } else if (deltaN > deltaP) {
+        data(r, c)[index] =
+                (protected_data(r - 1, c + 1, data, index) + protected_data(r + 1, c - 1, data, index)) / 2 +
+                tmp2 / 4;
+    } else {
+        data(r, c)[index] =
+                (protected_data(r - 1, c - 1, data, index) + protected_data(r + 1, c + 1, data, index) +
+                 protected_data(r - 1, c + 1, data, index) + protected_data(r + 1, c - 1, data, index)) / 4 +
+                (tmp1 + tmp2) / 8;
+
+    }
+}
 
 int main(int argc, char **argv) {
     if (argc != 3) {
@@ -177,7 +216,7 @@ int main(int argc, char **argv) {
     quantize(pgmImage, data8);
 
     PGMHelper::dumpPGM(data8, argv[2]);
-    cout << endl;
+
 
     Mat<array<uint8_t, 3>> bayer_pattern(data8.rows(), data8.cols());
 
@@ -205,15 +244,38 @@ int main(int argc, char **argv) {
         for (int c = 0; c < bayer_pattern.cols(); ++c) {
             if (r % 2 == 0) {
                 if (c % 2 == 0) {
-                    bayer_pattern(r, c)[1] = greenReconstruction(r, c, bayer_pattern, FROM_RED);
+                    bayer_pattern(r, c)[1] = greenReconstruction(r, c, bayer_pattern, RED);
                 }
             } else {
                 if (c % 2 != 0) {
-                    bayer_pattern(r, c)[1] = greenReconstruction(r, c, bayer_pattern, FROM_BLUE);
+                    bayer_pattern(r, c)[1] = greenReconstruction(r, c, bayer_pattern, BLUE);
                 }
             }
         }
     }
+
+    PGMHelper::dumpPPM(bayer_pattern, "/home/nicola/Desktop/data_processing/bayer_decode/small_green");
+
+    for (int r = 0; r < bayer_pattern.rows(); ++r) {
+        for (int c = 0; c < bayer_pattern.cols(); ++c) {
+            if (r % 2 == 0) {
+                if (c % 2 == 1) {
+                    avarages_horiz(r, c, bayer_pattern, RED);
+                    avarages_vert(r, c, bayer_pattern, BLUE);
+                } else {
+                    redBluereconstruction(r, c, bayer_pattern, BLUE);
+                }
+            } else {
+                if (c % 2 == 0) {
+                    avarages_horiz(r, c, bayer_pattern, BLUE);
+                    avarages_vert(r, c, bayer_pattern, RED);
+                } else {
+                    redBluereconstruction(r, c, bayer_pattern, RED);
+                }
+            }
+        }
+    }
+    auto tmp = (protected_data(10, 49, bayer_pattern, GREEN));
 
     PGMHelper::dumpPPM(bayer_pattern, "/home/nicola/Desktop/data_processing/bayer_decode/small_color");
 

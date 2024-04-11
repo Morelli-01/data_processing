@@ -6,7 +6,8 @@
 #include <array>
 #include <algorithm>
 #include <chrono>
-
+#include <memory>
+    
 using namespace std::chrono;
 using namespace std;
 
@@ -24,6 +25,10 @@ public:
     Mat(size_t rows, size_t cols) : rows_(rows), cols_(cols) {
         data_ = vector<T>(rows_ * cols_);
         zero_ = nullptr;
+    }
+
+    Mat(const Mat &data) {
+        cout << "copy constructor was called" << endl;
     }
 
     T &operator()(int r, int c) {
@@ -66,6 +71,10 @@ public:
 
 };
 
+uint16_t byteSwap(uint16_t x) {
+    return (x >> 8) | ((x & 0x00FF) << 8);
+}
+
 struct PGMHelper {
 
     static auto parsePGM(const string &path) {
@@ -90,7 +99,7 @@ struct PGMHelper {
         data = Mat<uint16_t>(height, width);
         is.read(reinterpret_cast<char *>(data.dataVector().data()), data.dataVector().size() * sizeof(uint16_t));
         std::for_each(data.dataVector().begin(), data.dataVector().end(), [](uint16_t &x) {
-            x = std::byteswap(x);
+            x = byteSwap(x);
         });
         return data;
     }
@@ -188,6 +197,8 @@ void redBluereconstruction(size_t r, size_t c, Mat<array<uint8_t, 3>> &data, siz
 }
 
 int main(int argc, char **argv) {
+
+
     auto start = steady_clock::now();
 
     if (argc != 3) {
@@ -204,7 +215,7 @@ int main(int argc, char **argv) {
     PGMHelper::dumpPGM(data8, argv[2], "_gray");
 
     Mat<array<uint8_t, 3>> bayer_pattern(data8.rows(), data8.cols());
-    unique_ptr<array<uint8_t, 3>> zero = make_unique<array<uint8_t, 3>>(array<uint8_t, 3>{0, 0, 0});
+    unique_ptr<array<uint8_t, 3>> zero = make_unique<array<uint8_t, 3>>(array < uint8_t, 3 > {0, 0, 0});
     bayer_pattern.setZero(zero.get());
     for (int r = 0; r < bayer_pattern.rows(); ++r) {
         for (int c = 0; c < bayer_pattern.cols(); ++c) {

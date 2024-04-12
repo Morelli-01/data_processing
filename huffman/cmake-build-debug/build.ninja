@@ -49,8 +49,8 @@ cmake_ninja_workdir = C$:/Users/nicol/Desktop/data_processing/huffman/cmake-buil
 
 build cmake_object_order_depends_target_huffman2: phony || CMakeFiles/huffman2.dir
 
-build CMakeFiles/huffman2.dir/huffman2.cpp.obj: CXX_COMPILER__huffman2_unscanned_Debug C$:/Users/nicol/Desktop/data_processing/huffman/huffman2.cpp || cmake_object_order_depends_target_huffman2
-  DEP_FILE = CMakeFiles\huffman2.dir\huffman2.cpp.obj.d
+build CMakeFiles/huffman2.dir/huffmanV2.cpp.obj: CXX_COMPILER__huffman2_unscanned_Debug C$:/Users/nicol/Desktop/data_processing/huffman/huffmanV2.cpp || cmake_object_order_depends_target_huffman2
+  DEP_FILE = CMakeFiles\huffman2.dir\huffmanV2.cpp.obj.d
   FLAGS = -g -std=gnu++23 -fdiagnostics-color=always
   OBJECT_DIR = CMakeFiles\huffman2.dir
   OBJECT_FILE_DIR = CMakeFiles\huffman2.dir
@@ -63,7 +63,7 @@ build CMakeFiles/huffman2.dir/huffman2.cpp.obj: CXX_COMPILER__huffman2_unscanned
 #############################################
 # Link the executable huffman2.exe
 
-build huffman2.exe: CXX_EXECUTABLE_LINKER__huffman2_Debug CMakeFiles/huffman2.dir/huffman2.cpp.obj
+build huffman2.exe: CXX_EXECUTABLE_LINKER__huffman2_Debug CMakeFiles/huffman2.dir/huffmanV2.cpp.obj
   FLAGS = -g
   LINK_LIBRARIES = -lkernel32 -luser32 -lgdi32 -lwinspool -lshell32 -lole32 -loleaut32 -luuid -lcomdlg32 -ladvapi32
   OBJECT_DIR = CMakeFiles\huffman2.dir

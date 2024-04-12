@@ -3,4 +3,4 @@ project(huffman)
 
 set(CMAKE_CXX_STANDARD 23)
 
-add_executable(huffman2 huffman2.cpp)
+add_executable(huffman2 huffmanV2.cpp)

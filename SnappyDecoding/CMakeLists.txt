@@ -3,4 +3,4 @@ project(SnappyDecoding)
 
 set(CMAKE_CXX_STANDARD 17)
 
-add_executable(SnappyDecoding main.cpp)
+add_executable(SnappyDecoding snappy.cpp)

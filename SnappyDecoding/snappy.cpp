@@ -36,7 +36,6 @@ class BitReader {
     }
 
 public:
-    int nByte = 0;
 
     explicit BitReader(istream &is) : is_(is) {}
 
@@ -56,32 +55,45 @@ public:
 class SnappyDecoder {
     BitReader br_;
     uint64_t originalSSize = 0;
-//    ofstream os_;
     fstream fs_;
     string outputPath;
-//    queue<uint8_t> outBuffer{};
+    int nByte = 0;
+
 public:
     explicit SnappyDecoder(istream &is, const string &oPath) : br_(is), outputPath(oPath) {
-//        os_ = ofstream(oPath, ios::binary | ios::trunc);
         fs_ = fstream(oPath, ios::binary | ios::trunc | ios::in | ios::out);
     }
 
     void parseCopy(int length, uint32_t offset) {
+
         vector<uint8_t> byteBuff(length);
-//        os_.close();
         auto oldPos = fs_.tellp();
         auto newPos = oldPos.operator-(offset);
-        fs_.seekp(newPos);
-        fs_.read(reinterpret_cast<char *>(byteBuff.data()), length * sizeof(uint8_t));
-        fs_.seekg(oldPos);
-        fs_.write(reinterpret_cast<const char *>(byteBuff.data()), byteBuff.size() * sizeof(uint8_t));
-//        ifstream tmpstream(outputPath, ios::binary | ios::ate);
-//        tmpstream.seekg(tmpstream.tellg().operator-(offset));
-//        tmpstream.read(reinterpret_cast<char *>(byteBuff.data()), length * sizeof(uint8_t));
-        br_.nByte += length;
-//        tmpstream.close();
-//        os_ = ofstream(outputPath, ios::binary | ios::app);
-//        os_.write(reinterpret_cast<const char *>(byteBuff.data()), byteBuff.size() * sizeof(uint8_t));
+        if (offset >= length) {
+            fs_.seekp(newPos);
+            fs_.read(reinterpret_cast<char *>(byteBuff.data()), length);
+            fs_.seekg(oldPos);
+            fs_.write(reinterpret_cast<const char *>(byteBuff.data()), length);
+            nByte += length;
+
+        } else {
+            byteBuff = vector<uint8_t>(offset);
+            fs_.seekp(newPos);
+            fs_.read(reinterpret_cast<char *>(byteBuff.data()), offset);
+            fs_.seekg(oldPos);
+            fs_.write(reinterpret_cast<const char *>(byteBuff.data()), offset);
+            newPos = fs_.tellp();
+            for (int i = 0; i < length - offset; ++i) {
+                fs_.seekg(oldPos);
+                uint8_t t = fs_.get();
+                fs_.seekg(newPos);
+                fs_.put(t);
+                newPos.operator+=(1);
+                oldPos.operator+=(1);
+            }
+            nByte += length;
+
+        }
     }
 
 
@@ -102,10 +114,11 @@ public:
     void parseData() {
         uint8_t tmpC;
         int length;
-        while (br_.nByte < originalSSize) {
+        while (nByte < originalSSize) {
 //            cout << endl;
             tmpC = br_(8);
             int state = tmpC & 3;
+
             switch (state) {
                 case LITERAL: {
                     uint64_t type = tmpC >> 2;
@@ -122,7 +135,7 @@ public:
                         auto t = br_(8);
                         fs_.put(t);
 //                        cout.put(t);
-                        br_.nByte++;
+                        nByte++;
                     }
                     break;
                 }
@@ -132,7 +145,6 @@ public:
                     offset = (offset << 3) | (tmpC >> 5);
                     offset = (offset << 8) | br_(8);
                     parseCopy(length, offset);
-//                    parseBuff(length, offset);
                     break;
                 }
                 case COPY2BYTE: {
@@ -176,14 +188,6 @@ int main(int argc, char **argv) {
     SnappyDecoder sd_(is, argv[2]);
     sd_.parsePreamble();
     sd_.parseData();
-
-//    fstream fs(argv[2], ios::binary | ios::in | ios::out | ios::trunc);
-//    fs << "This is the first sentence\n";
-//    fs << "This is the second sentence\n";
-//    fs.seekp(ios::beg);
-//    char tmp;
-//    while (((tmp = fs.get()) | true) & fs.good())
-//        cout << tmp;
 
     auto stop = steady_clock::now();
     duration<double, std::milli> elapsed_ms = stop - start;

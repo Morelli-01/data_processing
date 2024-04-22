@@ -1,0 +1,6 @@
+# ninja log v5
+2	400	7351326411501268	CMakeFiles/naive_encrypter.dir/main.cpp.obj	c9a9efebbe652ea6
+4	1882	7353228147017021	CMakeFiles/naive_encrypter.dir/main2.cpp.obj	74fae7446da5b63f
+400	468	7351326412161302	naive_encrypter.exe	d1bd9781ab688e2d
+0	552	7353929654121370	CMakeFiles/naive_encrypter.dir/main.cpp.obj	d12fcee400457254
+553	634	7353929654917143	naive_encrypter.exe	5fd0a78c58e4a9b8

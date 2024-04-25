@@ -1,0 +1,3 @@
+C:/Users/nicol/Desktop/data_processing/mcut/build/CMakeFiles/mcut.dir
+C:/Users/nicol/Desktop/data_processing/mcut/build/CMakeFiles/ALL_BUILD.dir
+C:/Users/nicol/Desktop/data_processing/mcut/build/CMakeFiles/ZERO_CHECK.dir

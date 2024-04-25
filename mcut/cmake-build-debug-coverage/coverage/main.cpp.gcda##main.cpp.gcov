@@ -1,0 +1,937 @@
+        -:    0:Source:C:/Users/nicol/Desktop/data_processing/mcut/main.cpp
+        -:    0:Graph:C:\Users\nicol\Desktop\data_processing\mcut\cmake-build-debug-coverage\CMakeFiles\mcut.dir\main.cpp.gcno
+        -:    0:Data:C:\Users\nicol\Desktop\data_processing\mcut\cmake-build-debug-coverage\CMakeFiles\mcut.dir\main.cpp.gcda
+        -:    0:Runs:1
+        -:    1:#include <iostream>
+        -:    2:#include <vector>
+        -:    3:#include <fstream>
+        -:    4:#include <map>
+        -:    5:#include <random>
+        -:    6:#include <cstdlib>
+        -:    7:#include <algorithm>
+        -:    8:#include <unordered_map>
+        -:    9:#include "array"
+        -:   10:#include "string"
+        -:   11:#include "chrono"
+        -:   12:#include "cmath"
+        -:   13:#include "utility"
+        -:   14:
+        -:   15:using namespace std;
+        -:   16:using namespace std::chrono;
+        -:   17:using Pixel = array<uint8_t, 3>;
+        -:   18:
+        -:   19:
+        -:   20:struct Box {
+        -:   21:    Pixel v1{};
+        -:   22:    Pixel v2{};
+        -:   23:    array<vector<uint8_t>, 3> histogram_{};
+        -:   24:
+        -:   25:    explicit Box(vector<Pixel> &pixels) {
+        -:   26:        std::for_each(pixels.begin(), pixels.end(), [&](Pixel &p) {
+        -:   27:            histogram_[0].emplace_back(p[0]);
+        -:   28:            histogram_[1].emplace_back(p[1]);
+        -:   29:            histogram_[2].emplace_back(p[2]);
+        -:   30:        });
+        -:   31:
+        -:   32:
+        -:   33:        uint8_t r_min = 0, g_min = 0, b_min = 0;
+        -:   34:        uint8_t r_max = 255, g_max = 255, b_max = 255;
+        -:   35:        for (int i = 0; i < 256; ++i) {
+        -:   36:            if (histogram_[0][i] != 0) {
+        -:   37:                r_min = i;
+        -:   38:                break;
+        -:   39:            }
+        -:   40:        }
+        -:   41:        for (int i = 0; i < 256; ++i) {
+        -:   42:            if (histogram_[1][i] != 0) {
+        -:   43:                g_min = i;
+        -:   44:                break;
+        -:   45:            }
+        -:   46:        }
+        -:   47:        for (int i = 0; i < 256; ++i) {
+        -:   48:            if (histogram_[2][i] != 0) {
+        -:   49:                b_min = i;
+        -:   50:                break;
+        -:   51:            }
+        -:   52:        }
+        -:   53:
+        -:   54:        for (int i = 255; i >= 0; --i) {
+        -:   55:            if (histogram_[0][i] != 0) {
+        -:   56:                r_max = i;
+        -:   57:                break;
+        -:   58:            }
+        -:   59:        }
+        -:   60:        for (int i = 255; i >= 0; --i) {
+        -:   61:            if (histogram_[1][i] != 0) {
+        -:   62:                g_max = i;
+        -:   63:                break;
+        -:   64:            }
+        -:   65:        }
+        -:   66:        for (int i = 255; i >= 0; --i) {
+        -:   67:            if (histogram_[2][i] != 0) {
+        -:   68:                g_max = i;
+        -:   69:                break;
+        -:   70:            }
+        -:   71:        }
+        -:   72:
+        -:   73:        v1 = Pixel{r_min, g_min, b_min};
+        -:   74:        v2 = Pixel{r_max, g_max, b_max};
+        -:   75:
+        -:   76:    }
+        -:   77:
+        -:   78:    explicit Box(Pixel v1, Pixel v2) : v1(v1), v2(v2) {}
+        -:   79:
+        -:   80:    size_t rangeR() {
+        -:   81:        return (v2[0] - v1[0]) + 1;
+        -:   82:    }
+        -:   83:
+        -:   84:    size_t rangeG() {
+        -:   85:        return (v2[1] - v1[1]) + 1;
+        -:   86:    }
+        -:   87:
+        -:   88:    size_t rangeB() {
+        -:   89:        return (v2[2] - v1[2]) + 1;
+        -:   90:    }
+        -:   91:
+        -:   92:    pair<size_t, size_t> getMaxRange() {
+        -:   93:        if (rangeB() >= rangeG() and rangeB() >= rangeR()) {
+        -:   94:            return {2, rangeB()};
+        -:   95:        } else if (rangeG() >= rangeR()) {
+        -:   96:            return {1, rangeG()};
+        -:   97:        }
+        -:   98:        return {0, rangeR()};
+        -:   99:    }
+        -:  100:
+        -:  101:    Pixel getMean() {
+        -:  102:        return Pixel{static_cast<unsigned char>((v2[0] - v1[0]) / 2),
+        -:  103:                     static_cast<unsigned char>((v2[1] - v1[1]) / 2),
+        -:  104:                     static_cast<unsigned char>((v2[2] - v1[2]) / 2)};
+        -:  105:    }
+        -:  106:
+        -:  107:    Pixel getMean2() {
+        -:  108:        array<size_t, 3> meanPixel{0, 0, 0};
+        -:  109:        size_t n = histogram_[0].size();
+        -:  110:        for (int i = 0; i < 3; ++i) {
+        -:  111:            std::for_each(histogram_[i].begin(), histogram_[i].end(), [&](uint8_t &v) {
+        -:  112:                meanPixel[i] += v;
+        -:  113:            });
+        -:  114:        }
+        -:  115:
+        -:  116:        return Pixel{static_cast<unsigned char>(meanPixel[0] / n),
+        -:  117:                     static_cast<unsigned char>(meanPixel[1] / n),
+        -:  118:                     static_cast<unsigned char>(meanPixel[2] / n)};
+        -:  119:    }
+        -:  120:
+        -:  121:    pair<unique_ptr<Box>, unique_ptr<Box>> splitBoxOnMedian() {
+        -:  122:        auto [index, range] = getMaxRange();
+        -:  123:        size_t splitIndex = 0;
+        -:  124:        std::sort(histogram_[index].begin(), histogram_[index].end());
+        -:  125:        splitIndex = histogram_[index][histogram_[index].size() / 2];
+        -:  126:
+        -:  127:        Box B1 = Box(v1, v2);
+        -:  128:        Box B2 = Box(v1, v2);
+        -:  129:        B1.v2[index] = splitIndex;
+        -:  130:        B2.v1[index] = splitIndex;
+        -:  131:
+        -:  132:        return {make_unique<Box>(B1), make_unique<Box>(B2)};
+        -:  133:
+        -:  134:    }
+        -:  135:
+        -:  136:    void histogram(vector<Pixel> &pixels) {
+        -:  137:        std::for_each(pixels.begin(), pixels.end(), [&](Pixel &p) {
+        -:  138:            if (p[0] >= v1[0] and p[0] <= v2[0] and
+        -:  139:                p[1] >= v1[1] and p[1] <= v2[1] and
+        -:  140:                p[2] >= v1[2] and p[2] <= v2[2]) {
+        -:  141:                histogram_[0].emplace_back(p[0]);
+        -:  142:                histogram_[1].emplace_back(p[1]);
+        -:  143:                histogram_[2].emplace_back(p[2]);
+        -:  144:            }
+        -:  145:        });
+        -:  146:    }
+        -:  147:
+        -:  148:};
+        -:  149:
+        -:  150:template<typename T>
+        1:  151:class Mat {
+    $$$$$:  151-block  0
+call    0 never executed
+        1:  151-block  1
+call    1 returned 1
+    $$$$$:  151-block  2
+call    2 never executed
+        -:  152:    size_t rows_;
+        -:  153:    size_t cols_;
+        -:  154:    std::vector<T> data_;
+        -:  155:public:
+function _ZN3MatISt5arrayIhLy3EEEC1Eyy called 2 returned 100% blocks executed 83%
+        2:  156:    Mat(size_t r, size_t c) : rows_(r), cols_(c) {
+        2:  156-block  0
+call    0 returned 2
+branch  1 taken 2 (fallthrough)
+branch  2 taken 0 (throw)
+        2:  157:        data_ = vector<T>(rows_ * cols_);
+        2:  157-block  0
+call    0 returned 2
+branch  1 taken 2 (fallthrough)
+branch  2 taken 0 (throw)
+        2:  157-block  1
+call    3 returned 2
+call    4 returned 2
+        2:  158:    }
+    $$$$$:  158-block  0
+call    0 never executed
+        -:  159:
+function _ZN3MatISt5arrayIhLy3EEEclEyy called 1334000 returned 100% blocks executed 67%
+  1334000:  160:    array<uint8_t, 3> &operator()(size_t r, size_t c) {
+  1334000:  161:        return data_.at(r * cols_ + c);
+  1334000:  161-block  0
+branch  0 taken 0 (fallthrough)
+branch  1 taken 1334000
+        -:  162:    }
+        -:  163:
+        -:  164:    const array<uint8_t, 3> &operator()(size_t r, size_t c) const {
+        -:  165:        return data_.at(r * cols_ + c);
+        -:  166:    }
+        -:  167:
+        2:  168:    size_t size() const {
+        2:  169:        return rows_ * cols_;
+        -:  170:    }
+        -:  171:
+        1:  172:    vector<T> &data() {
+        1:  173:        return data_;
+        -:  174:    }
+        -:  175:
+      669:  176:    size_t rows() const {
+      669:  177:        return rows_;
+        -:  178:    }
+        -:  179:
+   667668:  180:    size_t cols() const {
+   667668:  181:        return cols_;
+        -:  182:    }
+        -:  183:
+function _ZN3MatISt5arrayIhLy3EEE13readFromBytesERSi called 1 returned 100% blocks executed 72%
+        1:  184:    static Mat<Pixel> readFromBytes(istream &is) {
+        1:  184-block  0
+call    0 returned 1
+branch  1 taken 1 (fallthrough)
+branch  2 taken 0 (throw)
+        -:  185:
+        1:  186:        string tmp;
+        1:  187:        is >> tmp;
+        1:  187-block  0
+call    0 returned 1
+branch  1 taken 1 (fallthrough)
+branch  2 taken 0 (throw)
+        1:  188:        map<string, size_t> header_{};
+        1:  188-block  0
+        -:  189:
+       12:  190:        while (tmp != "ENDHDR") {
+        7:  190-block  0
+branch  0 taken 6
+branch  1 taken 1 (fallthrough)
+        6:  191:            if (tmp == "P7") {
+        6:  191-block  0
+branch  0 taken 1 (fallthrough)
+branch  1 taken 5
+        1:  192:                is >> tmp;
+        1:  192-block  0
+call    0 returned 1
+branch  1 taken 1 (fallthrough)
+branch  2 taken 0 (throw)
+        1:  193:                continue;
+        1:  193-block  0
+        -:  194:            }
+        5:  195:            auto h = tmp;
+        5:  196:            is >> tmp;
+        5:  196-block  0
+call    0 returned 5
+branch  1 taken 5 (fallthrough)
+branch  2 taken 0 (throw)
+        -:  197:
+        5:  198:            header_[h] = atoi(tmp.c_str());
+        5:  198-block  0
+call    0 returned 5
+call    1 returned 5
+branch  2 taken 5 (fallthrough)
+branch  3 taken 0 (throw)
+        -:  199:
+        5:  200:            is >> tmp;
+        5:  200-block  0
+call    0 returned 5
+branch  1 taken 5 (fallthrough)
+branch  2 taken 0 (throw)
+        -:  201:        }
+        1:  202:        is.get();
+        1:  202-block  0
+call    0 returned 1
+branch  1 taken 1 (fallthrough)
+branch  2 taken 0 (throw)
+        -:  203:
+        2:  204:        Mat mat = Mat<Pixel>(header_["HEIGHT"], header_["WIDTH"]);
+        1:  204-block  0
+call    0 returned 1
+branch  1 taken 1 (fallthrough)
+branch  2 taken 0 (throw)
+        1:  204-block  1
+call    3 returned 1
+branch  4 taken 1 (fallthrough)
+branch  5 taken 0 (throw)
+        1:  204-block  2
+call    6 returned 1
+branch  7 taken 1 (fallthrough)
+branch  8 taken 0 (throw)
+        1:  204-block  3
+call    9 returned 1
+branch 10 taken 1 (fallthrough)
+branch 11 taken 0 (throw)
+        1:  204-block  4
+call   12 returned 1
+branch 13 taken 1 (fallthrough)
+branch 14 taken 0 (throw)
+call   15 returned 1
+    $$$$$:  204-block  5
+call   16 never executed
+    $$$$$:  204-block  6
+call   17 never executed
+        -:  205:
+        1:  206:        is.read(reinterpret_cast<char *>(mat.data().data()), mat.size() * 3);
+call    0 returned 1
+branch  1 taken 1 (fallthrough)
+branch  2 taken 0 (throw)
+        -:  207:
+        1:  208:        return mat;
+        1:  209:    }
+call    0 returned 1
+        -:  210:
+function _ZN3MatISt5arrayIhLy3EEE7dumpPamERSo called 1 returned 100% blocks executed 66%
+        1:  211:    void dumpPam(ostream &os) {
+        1:  211-block  0
+call    0 returned 1
+        1:  212:        os.write(string{"P7"}.c_str(), 2);
+call    0 returned 1
+branch  1 taken 1 (fallthrough)
+branch  2 taken 0 (throw)
+call    3 never executed
+        1:  213:        os.put('\n');
+call    0 returned 1
+        -:  214:
+        1:  215:        os.write(string{"WIDTH "}.c_str(), 6);
+call    0 returned 1
+branch  1 taken 1 (fallthrough)
+branch  2 taken 0 (throw)
+call    3 never executed
+        2:  216:        os.write(to_string(cols_).c_str(), to_string(cols_).size());
+call    0 returned 1
+branch  1 taken 1 (fallthrough)
+branch  2 taken 0 (throw)
+        1:  216-block  0
+call    3 returned 1
+branch  4 taken 1 (fallthrough)
+branch  5 taken 0 (throw)
+call    6 returned 1
+    $$$$$:  216-block  1
+call    7 never executed
+call    8 never executed
+        1:  217:        os.put('\n');
+call    0 returned 1
+call    1 returned 1
+        -:  218:
+        1:  219:        os.write(string{"HEIGHT "}.c_str(), 7);
+call    0 returned 1
+branch  1 taken 1 (fallthrough)
+branch  2 taken 0 (throw)
+call    3 never executed
+        2:  220:        os.write(to_string(rows_).c_str(), to_string(rows_).size());
+call    0 returned 1
+branch  1 taken 1 (fallthrough)
+branch  2 taken 0 (throw)
+        1:  220-block  0
+call    3 returned 1
+branch  4 taken 1 (fallthrough)
+branch  5 taken 0 (throw)
+call    6 returned 1
+    $$$$$:  220-block  1
+call    7 never executed
+call    8 never executed
+        1:  221:        os.put('\n');
+call    0 returned 1
+call    1 returned 1
+        -:  222:
+        1:  223:        os.write(string{"DEPTH "}.c_str(), 6);
+call    0 returned 1
+branch  1 taken 1 (fallthrough)
+branch  2 taken 0 (throw)
+call    3 never executed
+        1:  224:        os.put('3');
+        1:  225:        os.put('\n');
+call    0 returned 1
+call    1 returned 1
+        -:  226:
+        1:  227:        os.write(string{"MAXVAL "}.c_str(), 7);
+call    0 returned 1
+branch  1 taken 1 (fallthrough)
+branch  2 taken 0 (throw)
+call    3 never executed
+        1:  228:        os.write(string{"255"}.c_str(), 3);
+call    0 returned 1
+branch  1 taken 1 (fallthrough)
+branch  2 taken 0 (throw)
+call    3 never executed
+        1:  229:        os.put('\n');
+call    0 returned 1
+        -:  230:
+        1:  231:        os.write(string{"TUPLTYPE "}.c_str(), 9);
+call    0 returned 1
+branch  1 taken 1 (fallthrough)
+branch  2 taken 0 (throw)
+call    3 never executed
+        1:  232:        os.write(string{"RGB"}.c_str(), 3);
+call    0 returned 1
+branch  1 taken 1 (fallthrough)
+branch  2 taken 0 (throw)
+call    3 never executed
+        1:  233:        os.put('\n');
+call    0 returned 1
+        -:  234:
+        1:  235:        os.write(string{"ENDHDR"}.c_str(), 6);
+call    0 returned 1
+branch  1 taken 1 (fallthrough)
+branch  2 taken 0 (throw)
+        2:  236:        os.put('\n');
+        -:  237:
+        1:  238:        os.write(reinterpret_cast<const char *>(data_.data()), size() * 3);
+call    0 returned 1
+        -:  239:
+       14:  240:    }
+        1:  240-block  0
+call    0 returned 1
+call    1 returned 1
+call    2 returned 1
+call    3 returned 1
+call    4 returned 1
+call    5 returned 1
+call    6 returned 1
+call    7 returned 1
+call    8 returned 1
+call    9 returned 1
+call   10 returned 1
+call   11 returned 1
+call   12 returned 1
+call   13 returned 1
+call   14 returned 1
+call   15 returned 1
+        -:  241:
+function _ZN3MatIhE14dumpPamPaletteERSoRSt6vectorISt5arrayIhLy3EESaIS4_EE called 1 returned 100% blocks executed 71%
+        1:  242:    static void dumpPamPalette(ostream &os, vector<Pixel> &palette) {
+        1:  242-block  0
+call    0 returned 1
+        1:  243:        os.write(string{"P7"}.c_str(), 2);
+call    0 returned 1
+branch  1 taken 1 (fallthrough)
+branch  2 taken 0 (throw)
+call    3 never executed
+        1:  244:        os.put('\n');
+call    0 returned 1
+        -:  245:
+        1:  246:        os.write(string{"WIDTH "}.c_str(), 6);
+call    0 returned 1
+branch  1 taken 1 (fallthrough)
+branch  2 taken 0 (throw)
+call    3 never executed
+        1:  247:        os.write(string{"10"}.c_str(), 2);
+call    0 returned 1
+branch  1 taken 1 (fallthrough)
+branch  2 taken 0 (throw)
+call    3 never executed
+        1:  248:        os.put('\n');
+call    0 returned 1
+        -:  249:
+        1:  250:        os.write(string{"HEIGHT "}.c_str(), 7);
+call    0 returned 1
+branch  1 taken 1 (fallthrough)
+branch  2 taken 0 (throw)
+call    3 never executed
+        2:  251:        os.write(to_string(palette.size() * 5).c_str(), to_string(palette.size() * 5).size());
+call    0 returned 1
+call    1 returned 1
+branch  2 taken 1 (fallthrough)
+branch  3 taken 0 (throw)
+        1:  251-block  0
+call    4 returned 1
+branch  5 taken 1 (fallthrough)
+branch  6 taken 0 (throw)
+call    7 returned 1
+    $$$$$:  251-block  1
+call    8 never executed
+call    9 never executed
+        1:  252:        os.put('\n');
+call    0 returned 1
+call    1 returned 1
+        -:  253:
+        1:  254:        os.write(string{"DEPTH "}.c_str(), 6);
+call    0 returned 1
+branch  1 taken 1 (fallthrough)
+branch  2 taken 0 (throw)
+call    3 never executed
+        1:  255:        os.put('3');
+        1:  256:        os.put('\n');
+call    0 returned 1
+call    1 returned 1
+        -:  257:
+        1:  258:        os.write(string{"MAXVAL "}.c_str(), 7);
+call    0 returned 1
+branch  1 taken 1 (fallthrough)
+branch  2 taken 0 (throw)
+call    3 never executed
+        1:  259:        os.write(string{"255"}.c_str(), 3);
+call    0 returned 1
+branch  1 taken 1 (fallthrough)
+branch  2 taken 0 (throw)
+call    3 never executed
+        1:  260:        os.put('\n');
+call    0 returned 1
+        -:  261:
+        1:  262:        os.write(string{"TUPLTYPE "}.c_str(), 9);
+call    0 returned 1
+branch  1 taken 1 (fallthrough)
+branch  2 taken 0 (throw)
+call    3 never executed
+        1:  263:        os.write(string{"RGB"}.c_str(), 3);
+call    0 returned 1
+branch  1 taken 1 (fallthrough)
+branch  2 taken 0 (throw)
+call    3 never executed
+        1:  264:        os.put('\n');
+call    0 returned 1
+        -:  265:
+        1:  266:        os.write(string{"ENDHDR"}.c_str(), 6);
+call    0 returned 1
+branch  1 taken 1 (fallthrough)
+branch  2 taken 0 (throw)
+        1:  267:        os.put('\n');
+        -:  268:
+      201:  269:        for (int i = 0; i < palette.size(); ++i) {
+      200:  269-block  0
+      201:  269-block  1
+branch  0 taken 200 (fallthrough)
+branch  1 taken 1
+     2200:  270:            for (int j = 0; j < 10; ++j) {
+     2000:  270-block  0
+     2200:  270-block  1
+branch  0 taken 2000 (fallthrough)
+branch  1 taken 200
+    12000:  271:                for (int k = 0; k < 5; ++k) {
+    12000:  271-block  0
+branch  0 taken 10000
+branch  1 taken 2000 (fallthrough)
+    10000:  272:                    os.put(palette[i][0]);
+    10000:  272-block  0
+call    0 returned 10000
+    10000:  273:                    os.put(palette[i][1]);
+call    0 returned 10000
+    10000:  274:                    os.put(palette[i][2]);
+call    0 returned 10000
+        -:  275:                }
+        -:  276:
+        -:  277:            }
+        -:  278:        }
+        -:  279:
+       14:  280:    }
+        1:  280-block  0
+call    0 returned 1
+call    1 returned 1
+call    2 returned 1
+call    3 returned 1
+call    4 returned 1
+call    5 returned 1
+call    6 returned 1
+call    7 returned 1
+call    8 returned 1
+call    9 returned 1
+call   10 returned 1
+call   11 returned 1
+call   12 returned 1
+call   13 returned 1
+call   14 returned 1
+call   15 returned 1
+call   16 returned 1
+        1:  280-block  1
+        -:  281:};
+        -:  282:
+        -:  283:struct MedianCut {
+        -:  284:
+        -:  285:    istream &is_;
+        -:  286:    ostream &os_;
+        -:  287:    size_t N_;
+        -:  288:
+        1:  289:    explicit MedianCut(istream &is, ostream &os, size_t N = 10) : is_(is), os_(os), N_(N) {}
+        -:  290:
+function _ZN9MedianCut8algoritmEv called 1 returned 100% blocks executed 75%
+        1:  291:    void algoritm() {
+        1:  292:        Mat mat = Mat<Pixel>::readFromBytes(is_);
+        1:  292-block  0
+call    0 returned 1
+        -:  293:
+        -:  294://        vector<Pixel> palette = getOptimalPalette(N_, mat.data());
+        1:  295:        vector<Pixel> palette = getPaletteKMeans(N_, mat.data());
+call    0 returned 1
+branch  1 taken 1 (fallthrough)
+branch  2 taken 0 (throw)
+        -:  296://        vector<Pixel> palette = getPalette(N_);
+        1:  297:        ofstream os2(R"(C:\Users\nicol\Desktop\data_processing\mcut\palette.pam)", ios::binary | ios::trunc);
+        1:  297-block  0
+call    0 returned 1
+branch  1 taken 1 (fallthrough)
+branch  2 taken 0 (throw)
+        1:  298:        Mat<uint8_t>::dumpPamPalette(os2, palette);
+        1:  298-block  0
+call    0 returned 1
+branch  1 taken 1 (fallthrough)
+branch  2 taken 0 (throw)
+        -:  299:
+        1:  300:        Mat qtzMat = Mat<Pixel>(mat.rows(), mat.cols());
+        1:  300-block  0
+call    0 returned 1
+branch  1 taken 1 (fallthrough)
+branch  2 taken 0 (throw)
+        -:  301:
+      668:  302:        for (int r = 0; r < mat.rows(); ++r) {
+      667:  302-block  0
+      668:  302-block  1
+branch  0 taken 667 (fallthrough)
+branch  1 taken 1
+   667667:  303:            for (int c = 0; c < mat.cols(); ++c) {
+   667667:  303-block  0
+branch  0 taken 667000
+branch  1 taken 667 (fallthrough)
+        -:  304:
+   667000:  305:                auto pixel = mat(r, c);
+   667000:  305-block  0
+call    0 returned 667000
+branch  1 taken 667000 (fallthrough)
+branch  2 taken 0 (throw)
+   667000:  306:                vector<float> dst(palette.size());
+   667000:  306-block  0
+call    0 returned 667000
+branch  1 taken 667000 (fallthrough)
+branch  2 taken 0 (throw)
+    $$$$$:  306-block  1
+call    3 never executed
+134067000:  307:                for (int i = 0; i < palette.size(); ++i) {
+   667000:  307-block  0
+134067000:  307-block  1
+branch  0 taken 133400000
+branch  1 taken 667000 (fallthrough)
+133400000:  308:                    float dstTmp = 0;
+133400000:  309:                    dstTmp = abs(pixel[0] - palette[i][0]) + abs(pixel[1] - palette[i][1]) +
+133400000:  309-block  0
+133400000:  310:                             abs(pixel[2] - palette[i][2]);
+133400000:  311:                    dst[i] = dstTmp;
+133400000:  311-block  0
+        -:  312:                }
+        -:  313:
+  1334000:  314:                qtzMat(r, c) = palette[std::distance(dst.begin(), std::min_element(dst.begin(), dst.end()))];
+   667000:  314-block  0
+branch  0 taken 667000 (fallthrough)
+branch  1 taken 0
+   667000:  314-block  1
+call    2 returned 667000
+branch  3 taken 667000 (fallthrough)
+branch  4 taken 0 (throw)
+   667000:  314-block  2
+branch  5 taken 667000 (fallthrough)
+branch  6 taken 0
+        -:  315:
+   667000:  316:            }
+   667000:  316-block  0
+    $$$$$:  316-block  1
+        -:  317:        }
+        -:  318:
+        1:  319:        qtzMat.dumpPam(os_);
+        1:  319-block  0
+call    0 returned 1
+branch  1 taken 1 (fallthrough)
+branch  2 taken 0 (throw)
+        -:  320:
+        1:  321:    }
+call    0 returned 1
+call    1 returned 1
+call    2 returned 1
+    $$$$$:  321-block  0
+call    3 never executed
+    $$$$$:  321-block  1
+call    4 never executed
+        -:  322:
+function _ZN9MedianCut10getPaletteEy called 1 returned 100% blocks executed 83%
+        1:  323:    static vector<Pixel> getPalette(size_t N) {
+        -:  324:
+        1:  325:        std::random_device rd;  // a seed source for the random number engine
+        1:  325-block  0
+call    0 returned 1
+        1:  326:        std::mt19937 gen(rd()); // mersenne_twister_engine seeded with rd()
+call    0 returned 1
+branch  1 taken 1 (fallthrough)
+branch  2 taken 0 (throw)
+        1:  326-block  0
+        1:  327:        std::uniform_int_distribution<short> distrib(0, 255);
+        1:  327-block  0
+        1:  328:        vector<Pixel> palette{};
+        -:  329:
+      201:  330:        for (int i = 0; i < N; ++i) {
+        1:  330-block  0
+      201:  330-block  1
+branch  0 taken 200
+branch  1 taken 1 (fallthrough)
+      200:  331:            palette.emplace_back(
+      200:  331-block  0
+call    0 returned 200
+      400:  332:                    Pixel{static_cast<unsigned char>(distrib(gen)), static_cast<unsigned char>(distrib(gen)),
+call    0 returned 200
+call    1 returned 200
+      200:  332-block  0
+      200:  333:                          static_cast<unsigned char>(distrib(gen))});
+call    0 returned 200
+branch  1 taken 200 (fallthrough)
+branch  2 taken 0 (throw)
+        -:  334:        }
+        -:  335:
+        1:  336:        return palette;
+        1:  336-block  0
+call    0 returned 1
+        1:  337:    }
+    $$$$$:  337-block  0
+call    0 never executed
+        -:  338:
+        -:  339:    static vector<Pixel> getOptimalPalette(size_t N, vector<Pixel> &initialBucket) {
+        -:  340:        vector<unique_ptr<Box>> boxes{};
+        -:  341:        boxes.push_back(make_unique<Box>(initialBucket));
+        -:  342:
+        -:  343:        while (boxes.size() < N) {
+        -:  344:
+        -:  345:            unique_ptr<Box> largestBox = std::move(boxes.back());
+        -:  346:            boxes.pop_back();
+        -:  347:
+        -:  348:            auto [B1, B2] = largestBox->splitBoxOnMedian();
+        -:  349:            B1->histogram(initialBucket);
+        -:  350:            B2->histogram(initialBucket);
+        -:  351:
+        -:  352:
+        -:  353:            boxes.push_back(std::move(B1));
+        -:  354:            boxes.push_back(std::move(B2));
+        -:  355:            std::sort(boxes.begin(), boxes.end(), [](unique_ptr<Box> &lhs, unique_ptr<Box> &rhs) {
+        -:  356://                return (lhs->rangeG() + lhs->rangeR() + lhs->rangeB()) <
+        -:  357://                       (rhs->rangeG() + rhs->rangeR() + rhs->rangeB());
+        -:  358:                return lhs->getMaxRange().second < rhs->getMaxRange().second;
+        -:  359:            });
+        -:  360:        }
+        -:  361:
+        -:  362:        vector<Pixel> palette{};
+        -:  363:        for (auto &b: boxes) {
+        -:  364:            palette.push_back(b->getMean2());
+        -:  365:        }
+        -:  366:
+        -:  367:        return palette;
+        -:  368:    }
+        -:  369:
+function _ZN9MedianCut16getPaletteKMeansEyRSt6vectorISt5arrayIhLy3EESaIS2_EE called 1 returned 100% blocks executed 81%
+        1:  370:    static vector<Pixel> getPaletteKMeans(size_t N, vector<Pixel> &pixels) {
+        1:  371:        vector<Pixel> palette = getPalette(N);
+        1:  371-block  0
+call    0 returned 1
+        1:  372:        vector<Pixel> oldPalette(N);
+call    0 returned 1
+branch  1 taken 1 (fallthrough)
+branch  2 taken 0 (throw)
+       31:  373:        while (!isEqual(oldPalette, palette)) {
+        1:  373-block  0
+       31:  373-block  1
+branch  0 taken 30
+branch  1 taken 1 (fallthrough)
+        -:  374:
+        -:  375://            cout << format("oldPalette: {},{},{}  |  {},{},{}  |  {},{},{}  |  {},{},{}  |  {},{},{}",
+        -:  376://                           oldPalette[0][0], oldPalette[0][1], oldPalette[0][2]
+        -:  377://                           ,oldPalette[1][0],oldPalette[1][1],oldPalette[1][2]
+        -:  378://                           ,oldPalette[2][0],oldPalette[2][1],oldPalette[2][2]
+        -:  379://                           ,oldPalette[3][0],oldPalette[3][1],oldPalette[3][2],
+        -:  380://                           oldPalette[4][0],oldPalette[4][1],oldPalette[4][2])<<endl;
+        -:  381://            cout << format("palette: {},{},{}  |  {},{},{}  |  {},{},{}  |  {},{},{}  |  {},{},{}",
+        -:  382://                           palette[0][0], palette[0][1], palette[0][2]
+        -:  383://                    ,palette[1][0],palette[1][1],palette[1][2]
+        -:  384://                    ,palette[2][0],palette[2][1],palette[2][2]
+        -:  385://                    ,palette[3][0],palette[3][1],palette[3][2],
+        -:  386://                           palette[4][0],palette[4][1],palette[4][2])<<endl;
+       30:  387:            oldPalette = palette;
+       30:  387-block  0
+call    0 returned 30
+branch  1 taken 30 (fallthrough)
+branch  2 taken 0 (throw)
+       30:  388:            vector<vector<Pixel>> subGroups(N);
+       30:  388-block  0
+call    0 returned 30
+branch  1 taken 30 (fallthrough)
+branch  2 taken 0 (throw)
+function _ZZN9MedianCut16getPaletteKMeansEyRSt6vectorISt5arrayIhLy3EESaIS2_EEENKUlRS2_E_clES6_ called 20010000 returned 100% blocks executed 84%
+       30:  389:            std::for_each(pixels.begin(), pixels.end(), [&](Pixel &p) {
+       30:  389-block  0
+ 20010000:  390:                vector<float> dst(palette.size());
+ 20010000:  390-block  0
+call    0 returned 20010000
+4022010000:  391:                for (int i = 0; i < palette.size(); ++i) {
+4022010000:  391-block  0
+branch  0 taken 4002000000
+branch  1 taken 20010000 (fallthrough)
+4002000000:  392:                    float dstTmp = 0;
+4002000000:  393:                    dstTmp = abs(p[0] - palette[i][0]) + abs(p[1] - palette[i][1]) +
+4002000000:  393-block  0
+4002000000:  394:                             abs(p[2] - palette[i][2]);
+4002000000:  395:                    dst[i] = dstTmp;
+4002000000:  395-block  0
+        -:  396:                }
+        -:  397:
+ 40020000:  398:                subGroups[std::distance(dst.begin(), std::min_element(dst.begin(), dst.end()))].push_back(p);
+ 20010000:  398-block  0
+branch  0 taken 20010000 (fallthrough)
+branch  1 taken 0
+ 20010000:  398-block  1
+call    2 returned 20010000
+branch  3 taken 20010000 (fallthrough)
+branch  4 taken 0 (throw)
+ 20010000:  399:            });
+ 20010000:  399-block  0
+     6030:  400:            for (int i = 0; i < N; ++i) {
+       30:  400-block  0
+     6030:  400-block  1
+branch  0 taken 6000
+branch  1 taken 30 (fallthrough)
+     6000:  401:                array<size_t, 3> meanPixel = {0, 0, 0};
+ 20016000:  402:                for (auto &p: subGroups[i]) {
+     6000:  402-block  0
+ 20016000:  402-block  1
+branch  0 taken 20010000
+branch  1 taken 6000 (fallthrough)
+ 20010000:  403:                    meanPixel[0] += p[0];
+ 20010000:  404:                    meanPixel[1] += p[1];
+ 20010000:  405:                    meanPixel[2] += p[2];
+ 20010000:  405-block  0
+        -:  406:                }
+        -:  407:
+     6000:  408:                meanPixel[0] /= subGroups[i].size();
+     6000:  408-block  0
+     6000:  409:                meanPixel[1] /= subGroups[i].size();
+     6000:  410:                meanPixel[2] /= subGroups[i].size();
+     6000:  411:                palette[i] = Pixel{static_cast<unsigned char>(meanPixel[0]), static_cast<unsigned char>(meanPixel[1]),
+     6000:  411-block  0
+     6000:  412:                                   static_cast<unsigned char>(meanPixel[2])};
+     6000:  412-block  0
+        -:  413:            }
+       30:  414:        }
+       30:  414-block  0
+call    0 returned 30
+    $$$$$:  414-block  1
+call    1 never executed
+        -:  415:
+        -:  416:
+        1:  417:        return palette;
+        1:  418:    }
+        1:  418-block  0
+call    0 returned 1
+    $$$$$:  418-block  1
+call    1 never executed
+    $$$$$:  418-block  2
+call    2 never executed
+        -:  419:
+function _ZN9MedianCut7isEqualERSt6vectorISt5arrayIhLy3EESaIS2_EES5_ called 31 returned 100% blocks executed 100%
+       31:  420:    static bool isEqual(vector<Pixel> &lhs, vector<Pixel> &rhs) {
+       31:  421:        if (lhs.size() != rhs.size())return false;
+       31:  421-block  0
+branch  0 taken 31
+branch  1 taken 0
+        -:  422:
+     1575:  423:        for (int i = 0; i < lhs.size(); ++i) {
+     1544:  423-block  0
+     1575:  423-block  1
+branch  0 taken 1574
+branch  1 taken 1
+     6222:  424:            for (int j = 0; j < 3; ++j) {
+     4648:  424-block  0
+     6222:  424-block  1
+branch  0 taken 4678
+branch  1 taken 1544 (fallthrough)
+     4678:  425:                if (abs(lhs[i][j] - rhs[i][j]) > 2 )return false;
+     4678:  425-block  0
+branch  0 taken 4648 (fallthrough)
+branch  1 taken 30
+        -:  426:            }
+        -:  427:        }
+        -:  428:        return true;
+        -:  429:    }
+        -:  430:};
+        -:  431:
+        -:  432:
+function main called 1 returned 100% blocks executed 79%
+        1:  433:int main() {
+        1:  434:    auto start = steady_clock::now();
+        1:  434-block  0
+call    0 returned 1
+        -:  435:
+        1:  436:    ifstream is(R"(C:\Users\nicol\Desktop\data_processing\mcut\parrot.pam)", ios::binary);
+call    0 returned 1
+        1:  437:    ofstream os(R"(C:\Users\nicol\Desktop\data_processing\mcut\quantizedImg.pam)", ios::binary | ios::trunc);
+call    0 returned 1
+branch  1 taken 1 (fallthrough)
+branch  2 taken 0 (throw)
+        1:  438:    if (is.fail() or os.fail()) {
+        1:  438-block  0
+branch  0 taken 1 (fallthrough)
+branch  1 taken 0
+        1:  438-block  1
+branch  2 taken 0 (fallthrough)
+branch  3 taken 1
+    #####:  439:        perror("Error while opening input\\output file\n");
+    %%%%%:  439-block  0
+call    0 never executed
+branch  1 never executed (fallthrough)
+branch  2 never executed (throw)
+        -:  440:        return EXIT_FAILURE;
+        -:  441:    }
+        -:  442:
+        1:  443:    MedianCut mcut(is, os, 200);
+        1:  444:    mcut.algoritm();
+        1:  444-block  0
+call    0 returned 1
+branch  1 taken 1 (fallthrough)
+branch  2 taken 0 (throw)
+        -:  445:
+        1:  446:    auto stop = steady_clock::now();
+        1:  446-block  0
+call    0 returned 1
+        1:  447:    duration<double, std::milli> elapsed_ms = stop - start;
+call    0 returned 1
+branch  1 taken 1 (fallthrough)
+branch  2 taken 0 (throw)
+        1:  448:    cout << "Elapsed time to execute decompression was :" << elapsed_ms.count() << "ms" << endl;
+call    0 returned 1
+branch  1 taken 1 (fallthrough)
+branch  2 taken 0 (throw)
+        1:  448-block  0
+call    3 returned 1
+branch  4 taken 1 (fallthrough)
+branch  5 taken 0 (throw)
+        1:  448-block  1
+call    6 returned 1
+branch  7 taken 1 (fallthrough)
+branch  8 taken 0 (throw)
+        1:  448-block  2
+call    9 returned 1
+branch 10 taken 1 (fallthrough)
+branch 11 taken 0 (throw)
+        -:  449:    return EXIT_SUCCESS;
+        1:  450:}
+        1:  450-block  0
+call    0 returned 1
+call    1 returned 1
+    $$$$$:  450-block  1
+call    2 never executed
+    $$$$$:  450-block  2
+call    3 never executed
+        -:  451:

@@ -1,0 +1,11 @@
+# ninja log v5
+2	723	7357689872195879	CMakeFiles/PAM.dir/main.cpp.obj	6d7c6213d3e5db33
+1310	1619	7360184728671544	PAM.exe	d3e304b5f62bcf31
+3	637	7358241943485847	CMakeFiles/PAM.dir/combine.cpp.obj	ebe12c1c530a82dd
+0	1307	7360184725547436	CMakeFiles/PAM.dir/huffdiff.cpp.obj	1642124a64d18301
+1	688	7357704383481490	CMakeFiles/PAM.dir/split.cpp.obj	db526a1b3d9c8473
+0	85	7360185275548430	build.ninja	ca48a7a9fd8d6c59
+2	1243	7359296670129423	CMakeFiles/PAM.dir/huffdif.cpp.obj	4473f103ca72aec6
+2	1533	7360181437184837	CMakeFiles/PAM.dir/huffdiffRGB.cpp.obj	d9b3bd26aa5e2d14
+1	1280	7360185367763413	CMakeFiles/PAM.dir/huffdiffRGB.cpp.obj	d9b3bd26aa5e2d14
+1282	1611	7360185371067401	PAM.exe	1e8adcda251cc260

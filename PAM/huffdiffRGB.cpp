@@ -14,6 +14,8 @@
 #include <vector>
 
 using namespace std;
+using Pixel = array<uint8_t, 3>;
+using Pixel16 = array<uint16_t, 3>;
 
 struct BitWriter {
     ostream &os_;
@@ -181,34 +183,103 @@ struct PamHelper {
 
         os.write(reinterpret_cast<const char *>(mat.data_.data()), mat.size());
     }
+
+    static Mat<Pixel> loadPam(istream &is) {
+        Mat<Pixel> mat(0, 0);
+        string tmpStr{};
+        is >> tmpStr;
+        if (tmpStr != "P7") {
+            return mat;
+        }
+        is >> tmpStr;
+        map<string, size_t> header_{};
+        string tmpV{};
+        while (tmpStr != "ENDHDR") {
+            is >> tmpV;
+
+            if (tmpStr == "TUPLTYPE") {
+                is >> tmpStr;
+                continue;
+            }
+            header_[tmpStr] = atoi(tmpV.c_str());
+            is >> tmpStr;
+        }
+        is.get();
+        mat = Mat<Pixel>(header_["HEIGHT"], header_["WIDTH"]);
+        is.read(reinterpret_cast<char *>(mat.data()), header_["HEIGHT"] * header_["WIDTH"] * 3);
+
+        cout << endl;
+        return mat;
+    }
+
+    static void dumpRGB(ostream &os, Mat<Pixel> &data) {
+
+        os.write("P7", 2);
+        os.put('\n');
+
+        os.write("WIDTH ", 6);
+        os.write(to_string(data.cols_).c_str(), to_string(data.cols_).size());
+        os.put('\n');
+
+        os.write("HEIGHT ", 7);
+        os.write(to_string(data.rows_).c_str(), to_string(data.rows_).size());
+        os.put('\n');
+
+        os.write("DEPTH ", 6);
+        os.write("3", 1);
+        os.put('\n');
+
+        os.write("MAXVAL ", 7);
+        os.write("255", 3);
+        os.put('\n');
+
+        os.write("TUPLTYPE  ", 9);
+        os.write("RGB", 3);
+        os.put('\n');
+
+        os.write("ENDHDR", 6);
+        os.put('\n');
+
+        os.write(reinterpret_cast<const char *>(data.data_.data()), data.size() * 3);
+    }
 };
 
 struct HuffDiffEncoder {
 
     array<size_t, 512> freq{};
-    Mat<uint16_t> diffMat;
+    Mat<Pixel16> diffMat;
     size_t numSym = 0;
     vector<Node> distrib{};
     vector<Code> codes{};
     BitWriter bw_;
 
-    explicit HuffDiffEncoder(Mat<uint8_t> &mat, ostream &os) : diffMat(mat.rows_, mat.cols_), bw_(os) {
-        diffMat(0, 0) = mat(0, 0) + 255;
+    explicit HuffDiffEncoder(Mat<Pixel> &mat, ostream &os) : diffMat(mat.rows_, mat.cols_), bw_(os) {
+        diffMat(0, 0)[0] = mat(0, 0)[0] + 255;
+        diffMat(0, 0)[1] = mat(0, 0)[1] + 255;
+        diffMat(0, 0)[2] = mat(0, 0)[2] + 255;
+
+
         for (int r = 1; r < mat.rows_; ++r) {
-            diffMat(r, 0) = ((int) mat(r, 0) - (int) mat(r - 1, 0)) + 255;
+            for (int j = 0; j < 3; ++j) {
+                diffMat(r, 0)[j] = ((int) mat(r, 0)[j] - (int) mat(r - 1, 0)[j]) + 255;
+            }
         }
 
         for (int r = 0; r < mat.rows_; ++r) {
             for (int c = 1; c < mat.cols_; ++c) {
-                diffMat(r, c) = ((int) mat(r, c) - (int) mat(r, c - 1)) + 255;
+                for (int j = 0; j < 3; ++j) {
+                    diffMat(r, c)[j] = ((int) mat(r, c)[j] - (int) mat(r, c - 1)[j]) + 255;
+                }
             }
         }
     }
 
     void computeFreq() {
-        std::for_each(diffMat.data_.begin(), diffMat.data_.end(), [&](uint16_t &v) {
-            freq[v]++;
-            numSym++;
+        std::for_each(diffMat.data_.begin(), diffMat.data_.end(), [&](Pixel16 &v) {
+            for (int j = 0; j < 3; ++j) {
+                freq[v[j]]++;
+                numSym++;
+            }
         });
     }
 
@@ -301,9 +372,11 @@ struct HuffDiffEncoder {
         }
         //diffMat encoded with canonical Huffman
 
-        for (uint16_t &sym: diffMat.data_) {
-            Code c = codeMap[sym];
-            bw_(c.code, c.size);
+        for (Pixel16 &p: diffMat.data_) {
+            for (int j = 0; j < 3; ++j) {
+                Code c = codeMap[p[j]];
+                bw_(c.code, c.size);
+            }
         }
     }
 
@@ -381,45 +454,56 @@ struct HuffDiffDecoder {
             len = entry.second;
         }
 
-        Mat<uint16_t> diffMat(rows, cols);
+        Mat<Pixel16> diffMat(rows, cols);
         for (int i = 0; i < diffMat.size(); ++i) {
             code = 0;
             len = 0;
-            while (true) {
-                code = (code << 1) | br_(1);
-                len++;
-                if (cipher.contains({len, code})) {
-                    diffMat.data_[i] = cipher[{len, code}].sym;
-                    break;
+            for (int j = 0; j < 3; ++j) {
+                code = 0;
+                len = 0;
+                while (true) {
+                    code = (code << 1) | br_(1);
+                    len++;
+                    if (cipher.contains({len, code})) {
+                        diffMat.data_[i][j] = cipher[{len, code}].sym;
+                        break;
+                    }
                 }
             }
         }
-        Mat<uint8_t> decodedMat(rows, cols);
-        decodedMat(0, 0) = diffMat(0, 0) - 255;
+        Mat<Pixel> decodedMat(rows, cols);
+        decodedMat(0, 0)[0] = diffMat(0, 0)[0] - 255;
+        decodedMat(0, 0)[1] = diffMat(0, 0)[1] - 255;
+        decodedMat(0, 0)[2] = diffMat(0, 0)[2] - 255;
         for (int i = 1; i < rows; ++i) {
-            decodedMat(i, 0) = diffMat(i, 0) + decodedMat(i - 1, 0) - 255;
+            for (int j = 0; j < 3; ++j) {
+                decodedMat(i, 0)[j] = diffMat(i, 0)[j] + decodedMat(i - 1, 0)[j] - 255;
+            }
         }
         for (int r = 0; r < rows; ++r) {
             for (int c = 1; c < cols; ++c) {
-                decodedMat(r, c) = diffMat(r, c) + decodedMat(r, c - 1) - 255;
+                for (int j = 0; j < 3; ++j) {
+                    decodedMat(r, c)[j] = diffMat(r, c)[j] + decodedMat(r, c - 1)[j] - 255;
+                }
             }
         }
-        PamHelper::dumpPamGray(os, decodedMat);
+        PamHelper::dumpRGB(os, decodedMat);
     }
 };
 
 struct Entropy {
 
     template<typename T>
-    static double entropy(Mat<T> &data) {
+    static double entropy(Mat<array<T, 3>> &data) {
         map<uint16_t, size_t> freq{};
         size_t numElem = data.size() * 3;
         for (int i = 0; i < data.size(); ++i) {
-
-            if (freq.contains(data.data_[i])) {
-                freq[data.data_[i]]++;
-            } else {
-                freq[data.data_[i]] = 1;
+            for (int j = 0; j < 3; ++j) {
+                if (freq.contains(data.data_[i][j])) {
+                    freq[data.data_[i][j]]++;
+                } else {
+                    freq[data.data_[i][j]] = 1;
+                }
             }
         }
         double entropy = 0;
@@ -432,7 +516,6 @@ struct Entropy {
         return 0.0;
     }
 };
-
 
 int main(int argc, char **argv) {
     if (argc != 4) {
@@ -449,22 +532,13 @@ int main(int argc, char **argv) {
             perror("Error while opening the input file\n");
             return EXIT_FAILURE;
         }
-        Mat<uint8_t> img = PamHelper::loadPamGray(is);
+
+
+        Mat<Pixel> img = PamHelper::loadPam(is);
         is.close();
         Entropy::entropy(img);
 
-        ofstream os(R"(C:\Users\nicol\Desktop\data_processing\PAM\frog_diff.pam)", ios::binary | ios::trunc);
-        if (os.fail()) {
-            perror("Error while opening the output file\n");
-            return EXIT_FAILURE;
-        }
-//        Mat<uint8_t> diffImg = HuffDiffEncoder::diffMatPam(img);
-//
-//        PamHelper::dumpPamGray(os, diffImg);
-//        os.close();
-
-
-        os = ofstream(argv[3], ios::binary | ios::trunc);
+        ofstream os = ofstream(argv[3], ios::binary | ios::trunc);
         if (os.fail()) {
             perror("Error while opening the output file\n");
             return EXIT_FAILURE;
@@ -473,7 +547,6 @@ int main(int argc, char **argv) {
         hf_.algoritm();
         hf_.encode();
         Entropy::entropy(hf_.diffMat);
-
         return EXIT_SUCCESS;
     } else if (string{argv[1]} == "d") {
 

@@ -536,7 +536,7 @@ int main(int argc, char **argv) {
 
         Mat<Pixel> img = PamHelper::loadPam(is);
         is.close();
-        Entropy::entropy(img);
+//        Entropy::entropy(img);
 
         ofstream os = ofstream(argv[3], ios::binary | ios::trunc);
         if (os.fail()) {
@@ -546,7 +546,7 @@ int main(int argc, char **argv) {
         HuffDiffEncoder hf_(img, os);
         hf_.algoritm();
         hf_.encode();
-        Entropy::entropy(hf_.diffMat);
+//        Entropy::entropy(hf_.diffMat);
         return EXIT_SUCCESS;
     } else if (string{argv[1]} == "d") {
 

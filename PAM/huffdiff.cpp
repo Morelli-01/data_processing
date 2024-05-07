@@ -451,20 +451,11 @@ int main(int argc, char **argv) {
         }
         Mat<uint8_t> img = PamHelper::loadPamGray(is);
         is.close();
-        Entropy::entropy(img);
-
-        ofstream os(R"(C:\Users\nicol\Desktop\data_processing\PAM\frog_diff.pam)", ios::binary | ios::trunc);
-        if (os.fail()) {
-            perror("Error while opening the output file\n");
-            return EXIT_FAILURE;
-        }
-//        Mat<uint8_t> diffImg = HuffDiffEncoder::diffMatPam(img);
-//
-//        PamHelper::dumpPamGray(os, diffImg);
-//        os.close();
+//        Entropy::entropy(img);
 
 
-        os = ofstream(argv[3], ios::binary | ios::trunc);
+
+        ofstream os = ofstream(argv[3], ios::binary | ios::trunc);
         if (os.fail()) {
             perror("Error while opening the output file\n");
             return EXIT_FAILURE;
@@ -472,7 +463,7 @@ int main(int argc, char **argv) {
         HuffDiffEncoder hf_(img, os);
         hf_.algoritm();
         hf_.encode();
-        Entropy::entropy(hf_.diffMat);
+//        Entropy::entropy(hf_.diffMat);
 
         return EXIT_SUCCESS;
     } else if (string{argv[1]} == "d") {

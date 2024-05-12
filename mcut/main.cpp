@@ -294,7 +294,7 @@ struct MedianCut {
 //        vector<Pixel> palette = getOptimalPalette(N_, mat.data());
         vector<Pixel> palette = getPaletteKMeans(N_, mat.data());
 //        vector<Pixel> palette = getPalette(N_);
-        ofstream os2(R"(C:\Users\nicol\Desktop\data_processing\mcut\palette.pam)", ios::binary | ios::trunc);
+        ofstream os2(R"(/home/nicola/Desktop/data_processing/mcut/palette.pam)", ios::binary | ios::trunc);
         Mat<uint8_t>::dumpPamPalette(os2, palette);
 
         Mat qtzMat = Mat<Pixel>(mat.rows(), mat.cols());
@@ -433,14 +433,14 @@ struct MedianCut {
 int main() {
     auto start = steady_clock::now();
 
-    ifstream is(R"(C:\Users\nicol\Desktop\data_processing\mcut\parrot.pam)", ios::binary);
-    ofstream os(R"(C:\Users\nicol\Desktop\data_processing\mcut\quantizedImg.pam)", ios::binary | ios::trunc);
+    ifstream is(R"(/home/nicola/Desktop/data_processing/images/test2.pam)", ios::binary);
+    ofstream os(R"(/home/nicola/Desktop/data_processing/mcut/quantizedImg.pam)", ios::binary | ios::trunc);
     if (is.fail() or os.fail()) {
         perror("Error while opening input\\output file\n");
         return EXIT_FAILURE;
     }
 
-    MedianCut mcut(is, os, 200);
+    MedianCut mcut(is, os, 500);
     mcut.algoritm();
 
     auto stop = steady_clock::now();

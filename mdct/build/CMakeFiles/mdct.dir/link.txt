@@ -1,0 +1,1 @@
+/usr/bin/c++  -Wl,-z,stack-size=100000000 CMakeFiles/mdct.dir/main.cpp.o -o mdct

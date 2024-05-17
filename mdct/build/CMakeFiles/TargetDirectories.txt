@@ -1,3 +1,0 @@
-/home/nicola/Desktop/data_processing/mdct/build/CMakeFiles/mdct.dir
-/home/nicola/Desktop/data_processing/mdct/build/CMakeFiles/edit_cache.dir
-/home/nicola/Desktop/data_processing/mdct/build/CMakeFiles/rebuild_cache.dir

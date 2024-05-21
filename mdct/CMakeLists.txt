@@ -5,9 +5,10 @@ set(CMAKE_CXX_STANDARD 26)
 
 
 add_executable(mdct
-        mdct.cpp
-        error.h
-        error.cpp
+#        mdct.cpp
+#        error.h
+#        error.cpp
+        main.cpp
 )
 
-target_link_libraries(mdct PRIVATE "-Wl,--stack,160000000")
+#target_link_libraries(mdct PRIVATE "-Wl,--stack,160000000")

@@ -3,4 +3,5 @@ project(audio_intro)
 
 set(CMAKE_CXX_STANDARD 23)
 
-add_executable(audio_intro main.cpp)
+add_executable(audio_intro
+        test.cpp)

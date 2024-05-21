@@ -1,4 +1,9 @@
 //
+// Created by nicola on 5/21/24.
+//
+
+
+//
 // Created by nicola on 17/05/2024.
 //
 #include <ranges>
@@ -11,12 +16,11 @@
 #include "cmath"
 #include "functional"
 #include "array"
-#include "error.h"
 
 #define WIN_SIZE 1024
 #define DOUBLE_WIN_SIZE (WIN_SIZE*2)
 #define M_PI 3.14159265358979323846
-#define QTZ_VALUE 2600
+#define QTZ_VALUE 100000
 
 
 using namespace std;
@@ -52,7 +56,8 @@ struct frequency {
 
     double compute_entropy() {
         double h = 0.0;
-        for (auto &item: ranges::views::filter(freq | ranges::views::values, bind(not_equal_to(), std::placeholders::_1, 0))) {
+        for (auto &item: ranges::views::filter(freq | ranges::views::values,
+                                               bind(not_equal_to(), std::placeholders::_1, 0))) {
             h += item * log2((double) item);
         }
         h = log2(nSym) - ((double) 1 / nSym) * h;
@@ -117,9 +122,12 @@ struct IMDCT {
         for (int n = 0; n < DOUBLE_WIN_SIZE; ++n) {
             weights[n] = sin((M_PI / size) * (n + 0.5));
             for (int k = 0; k < WIN_SIZE; ++k) {
-                cosines[k * DOUBLE_WIN_SIZE + n] = cos((M_PI / WIN_SIZE) * (n + 0.5 + WIN_SIZE / 2) * (k + 0.5));
+                cosines[n * WIN_SIZE + k] = cos((M_PI / WIN_SIZE) * (n + 0.5 + WIN_SIZE / 2) * (k + 0.5));
+//                cosines[k * DOUBLE_WIN_SIZE + n] ;
             }
         }
+
+
     }
 
 
@@ -130,14 +138,14 @@ struct IMDCT {
         for (int n = 0; n < WIN_SIZE; ++n) {
             double sum = 0.0;
             for (int k = 0; k < WIN_SIZE; ++k) {
-                sum += data[start_index + k] * cosines[k * DOUBLE_WIN_SIZE + n];
+                sum += data[start_index + k] * cosines[n * WIN_SIZE + k];
             }
             winCoeff1.push_back(static_cast<int16_t>(round(sum * (2.0 / WIN_SIZE) * weights[n])));
         }
         for (int n = WIN_SIZE; n < DOUBLE_WIN_SIZE; ++n) {
             double sum = 0.0;
             for (int k = 0; k < WIN_SIZE; ++k) {
-                sum += data[start_index + k] * cosines[k * DOUBLE_WIN_SIZE + n];
+                sum += data[start_index + k] * cosines[n * WIN_SIZE + k];
             }
             winCoeff2.push_back(static_cast<int16_t>(round(sum * (2.0 / WIN_SIZE) * weights[n])));
         }
@@ -173,33 +181,39 @@ struct IMDCT {
 
 };
 
+void computeErrors() {
+    auto originalData = read_bytes<int16_t>("/home/nicola/Desktop/data_processing/mdct/test.raw");
+    auto reconstructedData = read_bytes<int16_t>("/home/nicola/Desktop/data_processing/mdct/reconstructed.raw");
+
+    vector<int16_t> error(originalData.size());
+    ranges::transform(originalData, reconstructedData, error.begin(), minus());
+
+    ofstream os("../error.raw", ios::binary | ios::trunc);
+    os.write(reinterpret_cast<const char *>(error.data()), error.size() * sizeof(int16_t));
+
+}
+
 int main(int argc, char **argv) {
     cout << "start\n";
     auto start = steady_clock::now();
-    if (string{argv[1]} == "c") {
-        vector file = read_bytes<int16_t>(argv[2]);
-        frequency<int16_t> statsOriginaFile{};
-        statsOriginaFile.compute_freq(file);
-        cout << "Entropy of the original file is : " << statsOriginaFile.compute_entropy() << endl;
+    vector file = read_bytes<int16_t>("/home/nicola/Desktop/data_processing/mdct/test.raw");
+    frequency<int16_t> statsOriginaFile{};
+    statsOriginaFile.compute_freq(file);
+    cout << "Entropy of the original file is : " << statsOriginaFile.compute_entropy() << endl;
 
 
-        MDCT mdct{QTZ_VALUE};
-        vector<int32_t> coeff = mdct(file);
-        ofstream os(string{argv[3]}, ios::binary);
-        os.write(reinterpret_cast<const char *>(coeff.data()), coeff.size() * sizeof(int32_t));
+    MDCT mdct{QTZ_VALUE};
+    vector<int32_t> coeff = mdct(file);
 
-        frequency<int32_t> stats{};
-        stats.compute_freq(coeff);
-        cout << "Entropy with quantization(" << QTZ_VALUE << ") is : " << stats.compute_entropy() << endl;
+    frequency<int32_t> stats{};
+    stats.compute_freq(coeff);
+    cout << "Entropy with quantization(" << QTZ_VALUE << ") is : " << stats.compute_entropy() << endl;
 
-    } else if (string{argv[1]} == "d") {
-        vector<int32_t> coeff = read_bytes<int32_t>(argv[2]);
-        IMDCT imdct{QTZ_VALUE};
-        vector<int16_t> reconstructed_data = imdct(coeff);
-        ofstream os(string{argv[3]}, ios::binary);
-        os.write(reinterpret_cast<const char *>(reconstructed_data.data()),
-                 reconstructed_data.size() * sizeof(int16_t));
-    }
+    IMDCT imdct{QTZ_VALUE};
+    vector<int16_t> reconstructed_data = imdct(coeff);
+    ofstream os(string{argv[3]}, ios::binary);
+    os.write(reinterpret_cast<const char *>(reconstructed_data.data()),
+             reconstructed_data.size() * sizeof(int16_t));
 
     auto stop = steady_clock::now();
     duration<double, std::milli> elapsed_ms = stop - start;

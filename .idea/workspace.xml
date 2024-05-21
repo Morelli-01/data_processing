@@ -27,7 +27,7 @@
   <component name="GithubPullRequestsUISettings"><![CDATA[{
   "selectedUrlAndAccountId": {
     "url": "https://github.com/Morelli-01/data_processing.git",
-    "accountId": "6e60c66a-1b40-41b8-8620-2104fa3fbae5"
+    "accountId": "c07fc755-fac0-4262-b5da-e7cf33d47820"
   }
 }]]></component>
   <component name="ProjectColorInfo">{
@@ -47,7 +47,7 @@
     "cidr.known.project.marker": "true",
     "git-widget-placeholder": "master",
     "ignore.virus.scanning.warn.message": "true",
-    "last_opened_file_path": "/home/nicola/Desktop/data_processing",
+    "last_opened_file_path": "/home/nicola/Desktop/data_processing/mdct",
     "nodejs_package_manager_path": "npm",
     "vue.rearranger.settings.migration": "true"
   }
@@ -65,6 +65,7 @@
       <workItem from="1715607511354" duration="65000" />
       <workItem from="1715839807552" duration="39000" />
       <workItem from="1715922991770" duration="35000" />
+      <workItem from="1716022652722" duration="14000" />
     </task>
     <task id="LOCAL-00001" summary="bittorrent">
       <option name="closed" value="true" />

@@ -7,13 +7,16 @@
 #include <algorithm>
 #include <chrono>
 #include <memory>
-    
+#include "ranges"
+#include "functional"
+
 using namespace std::chrono;
 using namespace std;
 
 #define RED 0
 #define GREEN 1
 #define BLUE 2
+using Pixel = array<uint8_t, 3>;
 
 template<typename T>
 class Mat {
@@ -42,13 +45,14 @@ public:
     }
 
     const T &operator()(int r, int c) const {
-        if (r < 0 or c < 0 or r >= rows_ or c >= cols_) {
-            return zero_;
-        }
         return data_[r * cols_ + c];
     }
 
     vector<T> &dataVector() {
+        return data_;
+    }
+
+    const vector<T> &dataVector() const {
         return data_;
     }
 
@@ -97,6 +101,11 @@ struct PGMHelper {
         is >> maxval;
         is.get();
         data = Mat<uint16_t>(height, width);
+//        for (int i = 0; i < data.dataVector().size(); ++i) {
+//            data.dataVector()[i] =  is.get();
+//            data.dataVector()[i] =  (data.dataVector()[i] << 8) | is.get();
+//        }
+
         is.read(reinterpret_cast<char *>(data.dataVector().data()), data.dataVector().size() * sizeof(uint16_t));
         std::for_each(data.dataVector().begin(), data.dataVector().end(), [](uint16_t &x) {
             x = byteSwap(x);
@@ -135,13 +144,14 @@ struct PGMHelper {
     }
 };
 
-Mat<uint8_t> &quantize(Mat<uint16_t> &data16, Mat<uint8_t> &data8) {
-    for (int r = 0; r < data8.rows(); ++r) {
-        for (int c = 0; c < data8.cols(); ++c) {
-            data8(r, c) = clamp(data16(r, c) / 255, 0, UINT8_MAX);
-        }
-    }
-    return data8;
+void quantize(Mat<uint16_t> &data16, Mat<uint8_t> &data8) {
+//    for (int r = 0; r < data8.rows(); ++r) {
+//        for (int c = 0; c < data8.cols(); ++c) {
+//            data8(r, c) = clamp(data16(r, c) / 255, 0, UINT8_MAX);
+//        }
+//    }
+    auto tView = data16.dataVector() | std::views::transform(bind(divides(), placeholders::_1, 256));
+    data8.dataVector() = vector<uint8_t>{tView.begin(), tView.end()};
 }
 
 void greenReconstruction(size_t r, size_t c, Mat<array<uint8_t, 3>> &data, size_t index) {
@@ -196,8 +206,35 @@ void redBluereconstruction(size_t r, size_t c, Mat<array<uint8_t, 3>> &data, siz
     }
 }
 
-int main(int argc, char **argv) {
+bool isEven(uint8_t i) {
+    return (i % 2) == 0;
+}
 
+struct isOdd {
+    explicit isOdd() = default;
+
+    bool operator()(const Pixel &pixel, size_t index) const {
+        return (pixel[index] % 2) != 0;
+    }
+
+    bool operator()(const uint8_t &pixel) const {
+        return (pixel % 2) != 0;
+    }
+};
+
+struct isEven {
+    explicit isEven() = default;
+
+    bool operator()(const Pixel &pixel, size_t index) const {
+        return (pixel[index] % 2) == 0;
+    }
+
+    bool operator()(const uint8_t &pixel) const {
+        return (pixel % 2) == 0;
+    }
+};
+
+int main(int argc, char **argv) {
 
     auto start = steady_clock::now();
 
@@ -214,19 +251,20 @@ int main(int argc, char **argv) {
 
     PGMHelper::dumpPGM(data8, argv[2], "_gray");
 
-    Mat<array<uint8_t, 3>> bayer_pattern(data8.rows(), data8.cols());
-    unique_ptr<array<uint8_t, 3>> zero = make_unique<array<uint8_t, 3>>(array < uint8_t, 3 > {0, 0, 0});
+    Mat<Pixel> bayer_pattern(data8.rows(), data8.cols());
+    unique_ptr<Pixel> zero = make_unique<array<uint8_t, 3>>(array<uint8_t, 3>{0, 0, 0});
     bayer_pattern.setZero(zero.get());
+
     for (int r = 0; r < bayer_pattern.rows(); ++r) {
         for (int c = 0; c < bayer_pattern.cols(); ++c) {
-            if (r % 2 == 0) {
-                if (c % 2 == 0) {
+            if (isEven(r)) {
+                if (isEven(c)) {
                     bayer_pattern(r, c)[0] = data8(r, c);
                 } else {
                     bayer_pattern(r, c)[1] = data8(r, c);
                 }
             } else {
-                if (c % 2 == 0) {
+                if (isEven(c)) {
                     bayer_pattern(r, c)[1] = data8(r, c);
                 } else {
                     bayer_pattern(r, c)[2] = data8(r, c);

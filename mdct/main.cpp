@@ -123,7 +123,6 @@ struct IMDCT {
             weights[n] = sin((M_PI / size) * (n + 0.5));
             for (int k = 0; k < WIN_SIZE; ++k) {
                 cosines[n * WIN_SIZE + k] = cos((M_PI / WIN_SIZE) * (n + 0.5 + WIN_SIZE / 2) * (k + 0.5));
-//                cosines[k * DOUBLE_WIN_SIZE + n] ;
             }
         }
 
@@ -188,7 +187,7 @@ void computeErrors() {
     vector<int16_t> error(originalData.size());
     ranges::transform(originalData, reconstructedData, error.begin(), minus());
 
-    ofstream os("../error.raw", ios::binary | ios::trunc);
+    ofstream os("/home/nicola/Desktop/data_processing/mdct/error.raw", ios::binary | ios::trunc);
     os.write(reinterpret_cast<const char *>(error.data()), error.size() * sizeof(int16_t));
 
 }
@@ -211,7 +210,7 @@ int main(int argc, char **argv) {
 
     IMDCT imdct{QTZ_VALUE};
     vector<int16_t> reconstructed_data = imdct(coeff);
-    ofstream os(string{argv[3]}, ios::binary);
+    ofstream os(string{"/home/nicola/Desktop/data_processing/mdct/reconstructed.raw"}, ios::binary);
     os.write(reinterpret_cast<const char *>(reconstructed_data.data()),
              reconstructed_data.size() * sizeof(int16_t));
 

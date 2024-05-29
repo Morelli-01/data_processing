@@ -440,7 +440,7 @@ int main() {
         return EXIT_FAILURE;
     }
 
-    MedianCut mcut(is, os, 500);
+    MedianCut mcut(is, os, 10);
     mcut.algoritm();
 
     auto stop = steady_clock::now();

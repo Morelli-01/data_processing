@@ -11,6 +11,7 @@
 #include "cmath"
 #include "functional"
 #include "array"
+#include "cstdlib"
 #include "error.h"
 
 #define WIN_SIZE 1024
@@ -52,7 +53,8 @@ struct frequency {
 
     double compute_entropy() {
         double h = 0.0;
-        for (auto &item: ranges::views::filter(freq | ranges::views::values, bind(not_equal_to(), std::placeholders::_1, 0))) {
+        for (auto &item: ranges::views::filter(freq | ranges::views::values,
+                                               bind(not_equal_to(), std::placeholders::_1, 0))) {
             h += item * log2((double) item);
         }
         h = log2(nSym) - ((double) 1 / nSym) * h;
@@ -117,9 +119,11 @@ struct IMDCT {
         for (int n = 0; n < DOUBLE_WIN_SIZE; ++n) {
             weights[n] = sin((M_PI / size) * (n + 0.5));
             for (int k = 0; k < WIN_SIZE; ++k) {
-                cosines[k * DOUBLE_WIN_SIZE + n] = cos((M_PI / WIN_SIZE) * (n + 0.5 + WIN_SIZE / 2) * (k + 0.5));
+                cosines[n * WIN_SIZE + k] = cos((M_PI / WIN_SIZE) * (n + 0.5 + WIN_SIZE / 2) * (k + 0.5));
             }
         }
+
+
     }
 
 
@@ -130,14 +134,14 @@ struct IMDCT {
         for (int n = 0; n < WIN_SIZE; ++n) {
             double sum = 0.0;
             for (int k = 0; k < WIN_SIZE; ++k) {
-                sum += data[start_index + k] * cosines[k * DOUBLE_WIN_SIZE + n];
+                sum += data[start_index + k] * cosines[n * WIN_SIZE + k];
             }
             winCoeff1.push_back(static_cast<int16_t>(round(sum * (2.0 / WIN_SIZE) * weights[n])));
         }
         for (int n = WIN_SIZE; n < DOUBLE_WIN_SIZE; ++n) {
             double sum = 0.0;
             for (int k = 0; k < WIN_SIZE; ++k) {
-                sum += data[start_index + k] * cosines[k * DOUBLE_WIN_SIZE + n];
+                sum += data[start_index + k] * cosines[n * WIN_SIZE + k];
             }
             winCoeff2.push_back(static_cast<int16_t>(round(sum * (2.0 / WIN_SIZE) * weights[n])));
         }
